@@ -150,67 +150,21 @@ function fitCanvas(canvas) {
 }
 
 function drawIncline() {
-  const canvas = $("inclineCanvas");
-  const fit = fitCanvas(canvas);
-  if (!fit) return;
-  const { ctx, w, h } = fit;
-  ctx.clearRect(0, 0, w, h);
-  state.drawGrade += (state.grade - state.drawGrade) * 0.12;
+  state.drawGrade += (state.grade - state.drawGrade) * 0.16;
   const g = state.drawGrade;
   const maxShow = 18;
-  const ang = Math.atan(Math.max(-maxShow, Math.min(maxShow, g)) / 100);
-  const cx = w * 0.5;
-  const cy = h * 0.58;
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.strokeStyle = "#2c2f36";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(-w * 0.42, 0);
-  ctx.lineTo(w * 0.42, 0);
-  ctx.stroke();
-  [-15, -10, -5, 0, 5, 10, 15].forEach((t) => {
-    const a = Math.atan(t / 100);
-    const len = t === 0 ? 18 : 10;
-    ctx.strokeStyle = t === 0 ? "#8e8e8e" : "#3a3d44";
-    ctx.beginPath();
-    ctx.moveTo(-w * 0.4 * Math.cos(a), -w * 0.4 * Math.sin(a));
-    ctx.lineTo((-w * 0.4 + len) * Math.cos(a), (-w * 0.4 + len) * Math.sin(a));
-    ctx.moveTo(w * 0.4 * Math.cos(a), w * 0.4 * Math.sin(a));
-    ctx.lineTo((w * 0.4 - len) * Math.cos(a), (w * 0.4 - len) * Math.sin(a));
-    ctx.stroke();
-  });
-  ctx.rotate(ang);
-  const roadW = Math.min(w * 0.82, 520);
-  const roadH = Math.max(18, h * 0.11);
-  ctx.fillStyle = "#3e6ae1";
-  ctx.beginPath();
-  const r = 6, x = -roadW / 2, y = -roadH / 2;
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + roadW, y, x + roadW, y + roadH, r);
-  ctx.arcTo(x + roadW, y + roadH, x, y + roadH, r);
-  ctx.arcTo(x, y + roadH, x, y, r);
-  ctx.arcTo(x, y, x + roadW, y, r);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "rgba(255,255,255,0.22)";
-  ctx.fillRect(-roadW * 0.02, -roadH / 2, 3, roadH);
-  ctx.fillStyle = "#fff";
-  ctx.font = "600 15px Inter, sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(fmtGrade(g), 0, 1);
-  ctx.restore();
-  ctx.fillStyle = "#5c5e62";
-  ctx.font = "500 11px Inter, sans-serif";
-  ctx.textAlign = "left";
-  ctx.fillText("\u221215%", 12, 18);
-  ctx.textAlign = "right";
-  ctx.fillText("+15%", w - 12, 18);
+  const clamped = Math.max(-maxShow, Math.min(maxShow, g));
+  const deg = Math.atan(clamped / 100) * (180 / Math.PI);
+  const road = $("road");
+  if (road) {
+    road.style.transform = "rotate(" + deg.toFixed(2) + "deg)";
+    road.textContent = fmtGrade(g);
+  }
 }
 
 function drawProfile() {
   const canvas = $("profileCanvas");
+  if (!canvas) return;
   const fit = fitCanvas(canvas);
   if (!fit) return;
   const { ctx, w, h } = fit;
@@ -228,7 +182,7 @@ function drawProfile() {
   ctx.stroke();
   if (pts.length < 2) {
     ctx.fillStyle = "#5c5e62";
-    ctx.font = "500 13px Inter, sans-serif";
+    ctx.font = "500 13px sans-serif";
     ctx.textAlign = "center";
     ctx.fillText("Trace builds after a few GPS samples", padL + iw / 2, padT + ih / 2);
     return;
@@ -250,16 +204,18 @@ function drawProfile() {
     const y = padT + (1 - (toDisp(p.alt) - min) / span) * ih;
     return [x, y];
   };
+  const last = xy(pts[pts.length - 1]);
   ctx.beginPath();
   pts.forEach((p, i) => {
     const [x, y] = xy(p);
     if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   });
-  const last = xy(pts[pts.length - 1]);
-  ctx.lineTo(last[0], padT + ih);
-  ctx.lineTo(padL, padT + ih);
+  for (let i = pts.length - 1; i >= 0; i--) {
+    const [x, y] = xy(pts[i]);
+    ctx.lineTo(x, Math.min(padT + ih, y + 16));
+  }
   ctx.closePath();
-  ctx.fillStyle = "rgba(62, 106, 225, 0.18)";
+  ctx.fillStyle = "rgba(62, 106, 225, 0.22)";
   ctx.fill();
   ctx.beginPath();
   pts.forEach((p, i) => {
@@ -267,14 +223,14 @@ function drawProfile() {
     if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   });
   ctx.strokeStyle = "#3e6ae1";
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 3;
   ctx.stroke();
   ctx.fillStyle = "#fff";
   ctx.beginPath();
   ctx.arc(last[0], last[1], 4, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = "#8e8e8e";
-  ctx.font = "500 11px Inter, sans-serif";
+  ctx.font = "500 11px sans-serif";
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
   ctx.fillText(Math.round(max) + " " + state.unit, padL - 8, padT + 6);
@@ -315,12 +271,9 @@ function onError(err) {
   const code = err && err.code;
   if (code === 1) {
     setStatus("off", "Location blocked");
-    showGate(
-      "Location blocked",
-      isAppleTouch
-        ? "Settings → Safari → Location → Ask or Allow, then reload and tap Enable location."
-        : "Allow location in site settings, then tap Enable location."
-    );
+    showGate("Location blocked", isAppleTouch
+      ? "Settings → Safari → Location → Ask or Allow, then reload and tap Enable location."
+      : "Allow location in site settings, then tap Enable location.");
   } else if (code === 2) setStatus("wait", "GPS unavailable");
   else if (code === 3) setStatus("wait", "GPS timeout");
   else setStatus("wait", err && err.message ? err.message : "GPS error");
@@ -370,12 +323,9 @@ loop();
 if (isTesla) startWatch();
 else {
   setStatus("wait", "Tap to enable GPS");
-  showGate(
-    "Enable location",
-    isAppleTouch
-      ? "On iPhone, Safari only asks for GPS after a tap. Tap the button, then Allow."
-      : "Tap to allow GPS. The browser will prompt once."
-  );
+  showGate("Enable location", isAppleTouch
+    ? "On iPhone, Safari only asks for GPS after a tap. Tap the button, then Allow."
+    : "Tap to allow GPS. The browser will prompt once.");
 }
 
 document.addEventListener("visibilitychange", () => {
