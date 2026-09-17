@@ -1,6 +1,5 @@
 const $ = (id) => document.getElementById(id);
 const CLIMB_WINDOW_MS = 4000;
-const PROFILE_MS = 8 * 60 * 1000;
 
 const state = {
   unit: localStorage.getItem("grade-unit") || "m",
@@ -41,11 +40,11 @@ function toDisp(m) {
 }
 function fmtAlt(m) {
   const v = toDisp(m);
-  return v == null ? "\u2014" : Math.round(v).toString();
+  return v == null ? "—" : Math.round(v).toString();
 }
 function fmtAlt1(m) {
   const v = toDisp(m);
-  return v == null ? "\u2014" : (Math.round(v * 10) / 10).toFixed(1);
+  return v == null ? "—" : (Math.round(v * 10) / 10).toFixed(1);
 }
 function fmtVs(mps) {
   if (!state.vsReady || mps == null || Number.isNaN(mps)) return "0 " + state.unit + "/min";
@@ -85,35 +84,50 @@ function sampleClimb(smoothAlt, speed) {
   state.vsReady = true;
   if (now - state.lastClimbSample < 800) return;
   state.lastClimbSample = now;
+
   const spd = speed == null || !Number.isFinite(speed) ? 0 : speed;
   const log = state.climbLog;
   log.push({ t: now, alt: smoothAlt, speed: spd });
   while (log.length && now - log[0].t > 10000) log.shift();
+
   const avgSpeed = log.reduce((s, p) => s + p.speed, 0) / log.length;
-  if (avgSpeed < 1.2) { zeroClimb(); return; }
+  if (avgSpeed < 1.2) {
+    zeroClimb();
+    return;
+  }
+
   let older = null;
   for (const p of log) {
     if (now - p.t >= CLIMB_WINDOW_MS) older = p;
   }
   if (!older) return;
+
   const dt = (now - older.t) / 1000;
   if (dt < 2) return;
   const rise = smoothAlt - older.alt;
   const run = avgSpeed * dt;
-  if (!Number.isFinite(rise) || run < 8) { zeroClimb(); return; }
+  if (!Number.isFinite(rise) || run < 8) {
+    zeroClimb();
+    return;
+  }
   const rawGrade = (rise / run) * 100;
   if (!Number.isFinite(rawGrade)) return;
   state.grade = state.grade * 0.65 + rawGrade * 0.35;
-  if (Math.abs(state.grade) < 0.3) { zeroClimb(); return; }
+  if (Math.abs(state.grade) < 0.3) {
+    zeroClimb();
+    return;
+  }
   state.vs = (state.grade / 100) * avgSpeed;
 }
 
 function pushProfile(alt) {
   const now = Date.now();
   const p = state.profile;
-  if (!p.length || now - p[p.length - 1].t >= 1000) p.push({ t: now, alt });
-  else p[p.length - 1] = { t: now, alt };
-  while (p.length && now - p[0].t > PROFILE_MS) p.shift();
+  if (!p.length || now - p[p.length - 1].t >= 1000) {
+    p.push({ t: now, alt });
+  } else {
+    p[p.length - 1] = { t: now, alt };
+  }
 }
 
 async function fetchTerrain(lat, lon) {
@@ -164,15 +178,19 @@ function drawIncline() {
 
 function drawProfile() {
   const canvas = $("profileCanvas");
-  if (!canvas) return;
   const fit = fitCanvas(canvas);
   if (!fit) return;
   const { ctx, w, h } = fit;
   ctx.clearRect(0, 0, w, h);
+
   const pts = state.profile;
-  const padL = 52, padR = 16, padT = 10, padB = 22;
+  const padL = 52;
+  const padR = 16;
+  const padT = 10;
+  const padB = 22;
   const iw = w - padL - padR;
   const ih = h - padT - padB;
+
   ctx.strokeStyle = "#2c2f36";
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -180,13 +198,15 @@ function drawProfile() {
   ctx.lineTo(padL, padT + ih);
   ctx.lineTo(padL + iw, padT + ih);
   ctx.stroke();
+
   if (pts.length < 2) {
     ctx.fillStyle = "#5c5e62";
-    ctx.font = "500 13px sans-serif";
+    ctx.font = "500 13px Inter, sans-serif";
     ctx.textAlign = "center";
     ctx.fillText("Trace builds after a few GPS samples", padL + iw / 2, padT + ih / 2);
     return;
   }
+
   const alts = pts.map((p) => toDisp(p.alt));
   let min = Math.min(...alts);
   let max = Math.max(...alts);
@@ -199,16 +219,19 @@ function drawProfile() {
   const t0 = pts[0].t;
   const t1 = pts[pts.length - 1].t;
   const tspan = Math.max(t1 - t0, 1000);
+
   const xy = (p) => {
     const x = padL + ((p.t - t0) / tspan) * iw;
     const y = padT + (1 - (toDisp(p.alt) - min) / span) * ih;
     return [x, y];
   };
+
   const last = xy(pts[pts.length - 1]);
   ctx.beginPath();
   pts.forEach((p, i) => {
     const [x, y] = xy(p);
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
   });
   for (let i = pts.length - 1; i >= 0; i--) {
     const [x, y] = xy(pts[i]);
@@ -217,26 +240,31 @@ function drawProfile() {
   ctx.closePath();
   ctx.fillStyle = "rgba(62, 106, 225, 0.22)";
   ctx.fill();
+
   ctx.beginPath();
   pts.forEach((p, i) => {
     const [x, y] = xy(p);
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
   });
   ctx.strokeStyle = "#3e6ae1";
   ctx.lineWidth = 3;
   ctx.stroke();
+
   ctx.fillStyle = "#fff";
   ctx.beginPath();
   ctx.arc(last[0], last[1], 4, 0, Math.PI * 2);
   ctx.fill();
+
   ctx.fillStyle = "#8e8e8e";
-  ctx.font = "500 11px sans-serif";
+  ctx.font = "500 11px Inter, sans-serif";
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
   ctx.fillText(Math.round(max) + " " + state.unit, padL - 8, padT + 6);
   ctx.fillText(Math.round(min) + " " + state.unit, padL - 8, padT + ih - 6);
+
   const mins = Math.max(1, Math.round((t1 - t0) / 60000));
-  $("profileRange").textContent = "last " + mins + " min  \u00b7  " + Math.round(max - min) + " " + state.unit + " span";
+  $("profileRange").textContent = "last " + mins + " min  ·  " + Math.round(max - min) + " " + state.unit + " span";
 }
 
 function render(pos) {
@@ -248,16 +276,19 @@ function render(pos) {
     sampleClimb(state.smoothAlt, c.speed);
     pushProfile(state.smoothAlt);
   }
+
   $("alt").textContent = fmtAlt(state.smoothAlt);
   $("gpsAlt").textContent = fmtAlt1(gpsAlt) + " " + state.unit;
-  $("terrainAlt").textContent = state.terrain == null ? "\u2014" : fmtAlt1(state.terrain) + " " + state.unit;
+  $("terrainAlt").textContent = state.terrain == null ? "—" : fmtAlt1(state.terrain) + " " + state.unit;
   $("vs").textContent = fmtVs(state.vs);
   $("grade").textContent = fmtGrade(state.grade);
+
   const acc = c.accuracy;
   if (acc != null && acc <= 12) setStatus("live", "GPS lock");
-  else if (acc != null && acc <= 40) setStatus("live", "GPS \u00b1" + Math.round(acc) + " m");
-  else if (acc != null) setStatus("wait", "GPS \u00b1" + Math.round(acc) + " m");
+  else if (acc != null && acc <= 40) setStatus("live", "GPS ±" + Math.round(acc) + " m");
+  else if (acc != null) setStatus("wait", "GPS ±" + Math.round(acc) + " m");
   else setStatus("live", "GPS live");
+
   if (c.latitude != null) fetchTerrain(c.latitude, c.longitude);
 }
 
@@ -271,12 +302,19 @@ function onError(err) {
   const code = err && err.code;
   if (code === 1) {
     setStatus("off", "Location blocked");
-    showGate("Location blocked", isAppleTouch
-      ? "Settings → Safari → Location → Ask or Allow, then reload and tap Enable location."
-      : "Allow location in site settings, then tap Enable location.");
-  } else if (code === 2) setStatus("wait", "GPS unavailable");
-  else if (code === 3) setStatus("wait", "GPS timeout");
-  else setStatus("wait", err && err.message ? err.message : "GPS error");
+    showGate(
+      "Location blocked",
+      isAppleTouch
+        ? "Settings → Safari → Location → Ask or Allow, then reload and tap Enable location."
+        : "Allow location in site settings, then tap Enable location."
+    );
+  } else if (code === 2) {
+    setStatus("wait", "GPS unavailable");
+  } else if (code === 3) {
+    setStatus("wait", "GPS timeout");
+  } else {
+    setStatus("wait", err && err.message ? err.message : "GPS error");
+  }
 }
 
 function startWatch() {
@@ -300,11 +338,20 @@ function startWatch() {
   $("gate").classList.remove("show");
   setStatus("wait", "Acquiring GPS");
   const opts = { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 };
-  navigator.geolocation.getCurrentPosition((pos) => { state.lastPos = pos; render(pos); }, onError, opts);
-  state.watchId = navigator.geolocation.watchPosition((pos) => { state.lastPos = pos; render(pos); }, onError, opts);
+  navigator.geolocation.getCurrentPosition((pos) => {
+    state.lastPos = pos;
+    render(pos);
+  }, onError, opts);
+  state.watchId = navigator.geolocation.watchPosition((pos) => {
+    state.lastPos = pos;
+    render(pos);
+  }, onError, opts);
   if (state.pollId) clearInterval(state.pollId);
   state.pollId = setInterval(() => {
-    navigator.geolocation.getCurrentPosition((pos) => { state.lastPos = pos; render(pos); }, () => {}, { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 });
+    navigator.geolocation.getCurrentPosition((pos) => {
+      state.lastPos = pos;
+      render(pos);
+    }, () => {}, { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 });
   }, 1000);
 }
 
@@ -316,19 +363,30 @@ function loop() {
 
 $("btnM").addEventListener("click", () => setUnit("m"));
 $("btnFt").addEventListener("click", () => setUnit("ft"));
-$("askLoc").addEventListener("click", (e) => { e.preventDefault(); startWatch(); });
+$("askLoc").addEventListener("click", (e) => {
+  e.preventDefault();
+  startWatch();
+});
+
 setUnit(state.unit);
 loop();
 
-if (isTesla) startWatch();
-else {
+if (isTesla) {
+  startWatch();
+} else {
   setStatus("wait", "Tap to enable GPS");
-  showGate("Enable location", isAppleTouch
-    ? "On iPhone, Safari only asks for GPS after a tap. Tap the button, then Allow."
-    : "Tap to allow GPS. The browser will prompt once.");
+  showGate(
+    "Enable location",
+    isAppleTouch
+      ? "On iPhone, Safari only asks for GPS after a tap. Tap the button, then Allow."
+      : "Tap to allow GPS. The browser will prompt once."
+  );
 }
 
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && isTesla) startWatch();
 });
-window.addEventListener("resize", () => { drawIncline(); drawProfile(); });
+window.addEventListener("resize", () => {
+  drawIncline();
+  drawProfile();
+});
