@@ -5,5 +5,179 @@
   <meta name="viewport" content="width=1280, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
   <title>Grade</title>
+  <style>
+    :root {
+      --bg: #000;
+      --surface: #171a20;
+      --raised: #2a2d34;
+      --ink: #fff;
+      --muted: #8e8e8e;
+      --dim: #5c5e62;
+      --line: #2c2f36;
+      --blue: #3e6ae1;
+      --ok: #3dd68c;
+      --warn: #f5a524;
+      --bad: #e82127;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0; width: 100%; height: 100%;
+      background: var(--bg); color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+      overflow: hidden; user-select: none;
+    }
+    body {
+      display: flex; flex-direction: column;
+      height: 100vh; height: 100dvh;
+      padding: 12px 16px; gap: 10px;
+    }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 40px; flex: 0 0 40px; gap: 10px; flex-wrap: nowrap;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand h1 {
+      margin: 0; font-size: 13px; font-weight: 500;
+      letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim);
+    }
+    .status { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
+    .dot.live { background: var(--ok); }
+    .dot.wait { background: var(--warn); }
+    .dot.off { background: var(--bad); }
+    .toggles { display: flex; gap: 8px; }
+    .seg { display: flex; background: var(--surface); border-radius: 6px; padding: 3px; }
+    .seg button {
+      appearance: none; border: 0; background: transparent; color: var(--muted);
+      font: inherit; font-size: 14px; font-weight: 500; padding: 7px 14px; border-radius: 4px;
+      min-height: 36px;
+    }
+    .seg button.on { background: var(--raised); color: #fff; }
+    main {
+      flex: 1; min-height: 0;
+      display: grid;
+      grid-template-rows: minmax(180px, 38%) minmax(220px, 1fr);
+      gap: 10px;
+    }
+    .top {
+      display: grid;
+      grid-template-columns: minmax(260px, 34%) minmax(0, 1fr);
+      gap: 10px;
+      min-height: 0;
+    }
+    .hero, .incline, .profile { background: var(--surface); border-radius: 10px; min-width: 0; }
+    .hero {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 18px 12px 16px; position: relative;
+      min-height: 0;
+    }
+    .k {
+      font-size: 11px; font-weight: 500; letter-spacing: 0.16em;
+      text-transform: uppercase; color: var(--dim);
+    }
+    .hero .k { position: absolute; top: 12px; left: 14px; }
+    .alt-wrap { display: flex; align-items: flex-end; gap: 8px; line-height: 0.88; }
+    .alt { font-size: 72px; font-weight: 500; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+    .alt-unit { font-size: 20px; color: var(--muted); padding-bottom: 10px; }
+    .hero-meta { margin-top: 12px; display: flex; gap: 16px; color: var(--muted); font-size: 13px; }
+    .hero-meta b { color: #fff; font-weight: 500; }
+    .speed { margin-top: 4px; font-size: 13px; color: var(--muted); }
+    .incline { display: flex; flex-direction: column; padding: 12px 16px 8px; min-height: 0; }
+    .incline-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; flex: 0 0 auto; }
+    .grade-read { font-size: 36px; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+    .vs-read { font-size: 15px; color: var(--muted); }
+    #inclineCanvas { width: 100%; flex: 1 1 auto; min-height: 110px; height: 100%; display: block; }
+    .profile {
+      display: flex; flex-direction: column; padding: 10px 14px 8px;
+      min-height: 0;
+    }
+    .profile-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 4px; gap: 10px; flex-wrap: wrap;
+    }
+    .profile-stats { display: flex; align-items: center; gap: 16px; font-size: 13px; color: var(--muted); }
+    .profile-stats .n { font-variant-numeric: tabular-nums; }
+    #profileCanvas { width: 100%; flex: 1 1 auto; min-height: 160px; height: 100%; display: block; }
+    .gate {
+      position: absolute; inset: 0; background: rgba(0,0,0,0.72);
+      display: none; align-items: center; justify-content: center; padding: 24px; z-index: 5;
+    }
+    .gate.show { display: flex; }
+    .gate-card { background: var(--surface); border-radius: 12px; padding: 28px; max-width: 420px; text-align: center; }
+    .gate-card h2 { margin: 0 0 8px; font-size: 22px; font-weight: 500; }
+    .gate-card p { margin: 0 0 20px; color: var(--muted); font-size: 15px; line-height: 1.45; }
+    .cta {
+      appearance: none; border: 0; background: var(--blue); color: #fff;
+      font: inherit; font-size: 16px; border-radius: 4px; min-height: 52px; width: 100%;
+    }
+    @media (max-width: 600px) {
+      .alt { font-size: 56px; }
+    }
+  </style>
 </head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>Grade</h1>
+      <div class="status">
+        <span class="dot" id="dot"></span>
+        <span id="statusText">Waiting for GPS</span>
+      </div>
+    </div>
+    <div class="toggles">
+      <div class="seg">
+        <button id="btnSim">Sim</button>
+        <button id="btnGps" class="on">GPS</button>
+      </div>
+      <div class="seg">
+        <button id="btnM" class="on">m</button>
+        <button id="btnFt">ft</button>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div class="top">
+      <section class="hero">
+        <div class="k">Altitude</div>
+        <div class="alt-wrap">
+          <div class="alt" id="alt">—</div>
+          <div class="alt-unit" id="altUnit">m</div>
+        </div>
+        <div class="hero-meta">
+          <span>GPS <b id="gpsAlt">—</b></span>
+          <span>Terrain <b id="terrainAlt">—</b></span>
+        </div>
+        <div class="speed" id="speed">—</div>
+      </section>
+      <section class="incline">
+        <div class="incline-head">
+          <span class="k">Grade</span>
+          <span class="grade-read" id="grade">0%</span>
+          <span class="vs-read" id="vs">0 m/min</span>
+        </div>
+        <canvas id="inclineCanvas"></canvas>
+      </section>
+    </div>
+    <section class="profile">
+      <div class="profile-head">
+        <span class="k">Altitude profile</span>
+        <div class="profile-stats">
+          <span class="n" id="gain">↑ 0 m</span>
+          <span class="n" id="loss">↓ 0 m</span>
+          <span id="profileRange">session</span>
+        </div>
+      </div>
+      <canvas id="profileCanvas"></canvas>
+    </section>
+  </main>
+  <div class="gate" id="gate">
+    <div class="gate-card">
+      <h2 id="gateTitle">Enable location</h2>
+      <p id="gateText">Allow GPS so Grade can tilt the road and draw the altitude trace.</p>
+      <button class="cta" id="askLoc" type="button">Enable location</button>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
 </html>
