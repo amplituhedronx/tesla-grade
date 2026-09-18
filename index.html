@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=1280, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
   <title>Grade</title>
   <style>
@@ -33,7 +33,7 @@
     }
     header {
       display: flex; align-items: center; justify-content: space-between;
-      min-height: 40px; flex: 0 0 auto; gap: 10px; flex-wrap: wrap;
+      height: 40px; flex: 0 0 40px; gap: 10px; flex-wrap: nowrap;
     }
     .brand { display: flex; align-items: center; gap: 12px; }
     .brand h1 {
@@ -53,17 +53,24 @@
       min-height: 36px;
     }
     .seg button.on { background: var(--raised); color: #fff; }
-    main { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+    main {
+      flex: 1; min-height: 0;
+      display: grid;
+      grid-template-rows: minmax(200px, 40%) minmax(180px, 1fr);
+      gap: 10px;
+    }
     .top {
-      display: flex; flex-direction: row; gap: 10px;
-      flex: 0 0 42%; min-height: 220px;
+      display: grid;
+      grid-template-columns: minmax(260px, 34%) minmax(0, 1fr);
+      gap: 10px;
+      min-height: 0;
     }
     .hero, .incline, .profile { background: var(--surface); border-radius: 10px; min-width: 0; }
     .hero {
-      flex: 0 0 34%;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
       padding: 18px 12px 16px; position: relative;
+      min-height: 0;
     }
     .k {
       font-size: 11px; font-weight: 500; letter-spacing: 0.16em;
@@ -71,19 +78,19 @@
     }
     .hero .k { position: absolute; top: 12px; left: 14px; }
     .alt-wrap { display: flex; align-items: flex-end; gap: 8px; line-height: 0.88; }
-    .alt { font-size: 88px; font-weight: 500; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+    .alt { font-size: 72px; font-weight: 500; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
     .alt-unit { font-size: 20px; color: var(--muted); padding-bottom: 10px; }
     .hero-meta { margin-top: 12px; display: flex; gap: 16px; color: var(--muted); font-size: 13px; }
     .hero-meta b { color: #fff; font-weight: 500; }
     .speed { margin-top: 4px; font-size: 13px; color: var(--muted); }
-    .incline { flex: 1; display: flex; flex-direction: column; padding: 12px 16px 8px; }
-    .incline-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }
+    .incline { display: flex; flex-direction: column; padding: 12px 16px 8px; min-height: 0; }
+    .incline-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; flex: 0 0 auto; }
     .grade-read { font-size: 36px; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
     .vs-read { font-size: 15px; color: var(--muted); }
-    #inclineCanvas { width: 100%; flex: 1; min-height: 140px; display: block; }
+    #inclineCanvas { width: 100%; flex: 1; min-height: 0; display: block; }
     .profile {
-      flex: 1; min-height: 180px;
       display: flex; flex-direction: column; padding: 10px 14px 8px;
+      min-height: 0;
     }
     .profile-head {
       display: flex; justify-content: space-between; align-items: baseline;
@@ -91,7 +98,7 @@
     }
     .profile-stats { display: flex; align-items: center; gap: 16px; font-size: 13px; color: var(--muted); }
     .profile-stats .n { font-variant-numeric: tabular-nums; }
-    #profileCanvas { width: 100%; height: 100%; flex: 1; min-height: 140px; display: block; }
+    #profileCanvas { width: 100%; flex: 1; min-height: 0; display: block; }
     .gate {
       position: absolute; inset: 0; background: rgba(0,0,0,0.72);
       display: none; align-items: center; justify-content: center; padding: 24px; z-index: 5;
@@ -104,11 +111,8 @@
       appearance: none; border: 0; background: var(--blue); color: #fff;
       font: inherit; font-size: 16px; border-radius: 4px; min-height: 52px; width: 100%;
     }
-    @media (max-width: 800px), (orientation: portrait) {
-      .top { flex-direction: column; flex: 0 0 auto; min-height: 0; }
-      .hero { flex: none; min-height: 180px; }
-      .incline { min-height: 200px; }
-      .alt { font-size: 64px; }
+    @media (max-width: 600px) {
+      .alt { font-size: 56px; }
     }
   </style>
 </head>
