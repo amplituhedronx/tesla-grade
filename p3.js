@@ -17,7 +17,7 @@ function drawProfile() {
     fillEl.setAttribute("d", "");
     dotEl.setAttribute("cx", "-20");
     if (aheadEl) aheadEl.setAttribute("d", "");
-    if (hint) hint.textContent = "Drive or tap Sim";
+    if (hint) hint.textContent = "Drive to build profile";
     $("profileX0").textContent = fmtDist(0);
     $("profileX1").textContent = fmtDist(0);
     $("profileX2").textContent = fmtDist(0);
@@ -165,47 +165,6 @@ function drawProfile() {
   }
 }
 
-function createSim() { return { elapsed: 0, alt: 542, lat: 46.561, lon: 8.336 }; }
-function stepSim(sim, dt) {
-  sim.elapsed += dt;
-  let t = sim.elapsed % CYCLE, seg = SEGMENTS[0];
-  for (let i = 0; i < SEGMENTS.length; i++) {
-    if (t < SEGMENTS[i].dt) { seg = SEGMENTS[i]; break; }
-    t -= SEGMENTS[i].dt;
-  }
-  const speed = seg.speedKmh / 3.6;
-  sim.alt += speed * (seg.grade / 100) * dt;
-  sim.lat += (speed * dt) / 111320;
-  return { alt: sim.alt, speed: speed, lat: sim.lat, lon: sim.lon, grade: seg.grade };
-}
-function startSim() {
-  state.sim = createSim();
-  state.terrain = 536;
-  setStatus("live", "Simulating");
-  const seed0 = Date.now() - 35000;
-  for (let i = 0; i < 35; i++) {
-    const fix = stepSim(state.sim, 1);
-    state.ahead = [120, 250, 450, 700].map(function (d) {
-      return { dist: d, alt: fix.alt + d * (fix.grade / 100) };
-    });
-    applyFix(fix.alt, fix.speed, fix.lat, fix.lon, seed0 + i * 1000);
-  }
-  drawIncline(); drawProfile();
-  state.simId = setInterval(function () {
-    if (!state.sim) return;
-    const fix = stepSim(state.sim, 1);
-    state.ahead = [120, 250, 450, 700].map(function (d) {
-      return { dist: d, alt: fix.alt + d * (fix.grade / 100) };
-    });
-    applyFix(fix.alt, fix.speed, fix.lat, fix.lon, Date.now());
-    drawIncline(); drawProfile();
-  }, 1000);
-}
-function stopSim() {
-  if (state.simId) { clearInterval(state.simId); state.simId = null; }
-  state.sim = null;
-}
-
 function showGate(title, text) { $("gateTitle").textContent = title; $("gateText").textContent = text; $("gate").classList.add("show"); }
 function onError(err) {
   const code = err && err.code;
@@ -243,8 +202,7 @@ function loop() { drawIncline(); drawProfile(); requestAnimationFrame(loop); }
 
 $("btnM").addEventListener("click", function () { setUnit("m"); });
 $("btnFt").addEventListener("click", function () { setUnit("ft"); });
-$("btnSim").addEventListener("click", function () { setMode("sim"); });
-$("btnGps").addEventListener("click", function () { setMode("gps"); });
+$("btnReset").addEventListener("click", function () { resetSession(); });
 $("askLoc").addEventListener("click", function (e) { e.preventDefault(); startWatch(); });
 $("askLoc").addEventListener("touchend", function (e) { e.preventDefault(); startWatch(); }, { passive: false });
 
@@ -262,8 +220,8 @@ if (isTesla) startWatch();
 else {
   setStatus("wait", "Tap to enable GPS");
   showGate("Enable location", isAppleTouch
-    ? "On iPhone, Safari only asks for GPS after a tap. Tap the button, then Allow \u2014 or use Sim."
-    : "Tap to allow GPS, or switch to Sim to preview the dashboards.");
+    ? "On iPhone, Safari only asks for GPS after a tap. Tap the button, then Allow."
+    : "Tap to allow GPS.");
 }
 
 document.addEventListener("visibilitychange", function () {
