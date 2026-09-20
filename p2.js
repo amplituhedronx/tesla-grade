@@ -1,10 +1,10 @@
 async function fetchTerrain(lat, lon, heading) {
   if (state.mode === "sim") return;
   const now = Date.now();
-  if (now - state.lastElevFetch < 5000) return;
-  if (state.lastElevAt && distM(state.lastElevAt, { lat: lat, lon: lon }) < 35 && now - state.lastElevFetch < 12000) return;
+  if (now - state.lastElevFetch < 8000) return;
+  if (state.lastElevAt && distM(state.lastElevAt, { lat: lat, lon: lon }) < 50 && now - state.lastElevFetch < 15000) return;
   state.lastElevFetch = now;
-  const ranges = heading != null && Number.isFinite(heading) ? [0, 80, 160, 280, 450] : [0];
+  const ranges = heading != null && Number.isFinite(heading) ? [0, 120, 250, 450, 700] : [0];
   const pts = ranges.map(function (d) {
     return d === 0 || heading == null || !Number.isFinite(heading)
       ? { lat: lat, lon: lon, dist: d }
@@ -25,15 +25,6 @@ async function fetchTerrain(lat, lon, heading) {
         if (typeof els[i] === "number") ahead.push({ dist: pts[i].dist, alt: els[i] });
       }
       state.ahead = ahead;
-      if (ahead.length) {
-        const near = ahead[0];
-        const gNear = ((near.alt - els[0]) / near.dist) * 100;
-        const far = ahead[ahead.length - 1];
-        const gFar = ((far.alt - els[0]) / far.dist) * 100;
-        let g = Number.isFinite(gNear) ? gNear : gFar;
-        if (Number.isFinite(gNear) && Number.isFinite(gFar)) g = gNear * 0.7 + gFar * 0.3;
-        if (Number.isFinite(g)) state.terrainGrade = g;
-      }
       if (state.gpsStuck || state.trackAlt == null) {
         if (state.trackAlt == null) state.trackAlt = els[0];
         pushProfile(now, state.trackAlt);
@@ -46,8 +37,8 @@ async function fetchTerrain(lat, lon, heading) {
 
 function paintReadouts() {
   $("alt").textContent = fmtAlt(state.trackAlt != null ? state.trackAlt : state.smoothAlt);
-  $("gpsAlt").textContent = state.lastAlt == null ? "\u2014" : fmtAlt2(state.lastAlt) + " " + state.unit;
-  $("terrainAlt").textContent = state.terrain == null ? "\u2014" : fmtAlt2(state.terrain) + " " + state.unit;
+  $("gpsAlt").textContent = state.lastAlt == null ? "\u2014" : fmtAlt1(state.lastAlt);
+  $("terrainAlt").textContent = state.terrain == null ? "\u2014" : fmtAlt1(state.terrain);
   $("vs").textContent = fmtVs(state.vs);
   $("grade").textContent = fmtGrade(state.grade);
   $("speed").textContent = fmtSpeed(state.speed);
@@ -81,25 +72,11 @@ function applyFix(alt, speed, lat, lon, now, heading) {
     }
   }
 
-  const dt = state.lastTrackT > 0 ? Math.min(3, (now - state.lastTrackT) / 1000) : 0;
-  state.lastTrackT = now;
-
-  if (state.gpsStuck || (alt == null && state.terrain != null)) {
-    if (state.trackAlt == null) {
-      state.trackAlt = state.terrain != null ? state.terrain : state.smoothAlt;
-    } else {
-      const g = state.terrainGrade != null ? state.terrainGrade : state.grade;
-      if (dt > 0 && spd >= 0.8 && Number.isFinite(g)) {
-        state.trackAlt += (g / 100) * spd * dt;
-      }
-      if (state.terrain != null) state.trackAlt = state.trackAlt * 0.82 + state.terrain * 0.18;
-    }
-  } else if (state.smoothAlt != null) {
-    if (state.trackAlt == null) state.trackAlt = state.smoothAlt;
-    else state.trackAlt = state.trackAlt * 0.4 + state.smoothAlt * 0.6;
-  }
-
-  if (state.trackAlt != null) {
+  let src = state.smoothAlt;
+  if ((src == null || state.gpsStuck) && state.terrain != null) src = state.terrain;
+  if (src != null) {
+    if (state.trackAlt == null) state.trackAlt = src;
+    else state.trackAlt = state.trackAlt * 0.45 + src * 0.55;
     accrueGain(state.trackAlt);
     sampleClimb(state.trackAlt, spd, lat, lon, now);
     pushProfile(now, state.trackAlt);
@@ -121,7 +98,7 @@ function render(pos, nowOverride) {
 }
 
 function drawIncline() {
-  state.drawGrade += (state.grade - state.drawGrade) * 0.28;
+  state.drawGrade += (state.grade - state.drawGrade) * 0.16;
   const wedge = $("inclineWedge");
   const bar = $("inclineBar");
   if (!wedge || !bar) return;
