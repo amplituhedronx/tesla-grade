@@ -60,10 +60,9 @@ function applyFix(alt, speed, lat, lon, now, heading) {
     if (step >= 8) state.heading = bearingDeg({ lat: state.lastLat, lon: state.lastLon }, { lat: lat, lon: lon });
   }
   const spd = advanceOdo(now, speed, lat, lon);
-
   if (alt != null && Number.isFinite(alt)) {
     if (state.smoothAlt == null) state.smoothAlt = alt;
-    else state.smoothAlt = state.smoothAlt * 0.72 + alt * 0.28;
+    else state.smoothAlt = state.smoothAlt * 0.5 + alt * 0.5;
     state.lastAlt = alt;
     state.gpsAltHist.push(alt);
     if (state.gpsAltHist.length > 12) state.gpsAltHist.shift();
@@ -76,12 +75,11 @@ function applyFix(alt, speed, lat, lon, now, heading) {
       state.gpsStuck = (mx - mn) < 2.5 && state.odo > 60;
     }
   }
-
   let src = state.smoothAlt;
   if ((src == null || state.gpsStuck) && state.terrain != null) src = state.terrain;
   if (src != null) {
     if (state.trackAlt == null) state.trackAlt = src;
-    else state.trackAlt = state.trackAlt * 0.7 + src * 0.3;
+    else state.trackAlt = state.trackAlt * 0.45 + src * 0.55;
     accrueGain(state.trackAlt);
     sampleClimb(state.trackAlt, spd, lat, lon, now);
     pushProfile(now, state.trackAlt);
