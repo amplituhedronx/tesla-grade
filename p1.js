@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-const CLIMB_WINDOW_MS = 3000;
+const CLIMB_WINDOW_MS = 4000;
 const EL_DB = 3;
 const SEGMENTS = [
   { dt: 18, grade: 1.4, speedKmh: 78 },
@@ -63,12 +63,11 @@ function resetSession() {
 function toDisp(m) { if (m == null || Number.isNaN(m)) return null; return state.unit === "ft" ? m * 3.28084 : m; }
 function fmtAlt(m) {
   const v = toDisp(m);
-  if (v == null) return "\u2014";
-  return Math.abs(v) >= 1000 ? v.toFixed(1) : (Math.round(v * 10) / 10).toFixed(1);
+  return v == null ? "\u2014" : (Math.round(v * 10) / 10).toFixed(1);
 }
-function fmtAlt2(m) {
+function fmtAlt1(m) {
   const v = toDisp(m);
-  return v == null ? "\u2014" : v.toFixed(2);
+  return v == null ? "\u2014" : (Math.round(v * 10) / 10).toFixed(1);
 }
 function fmtVs(mps) {
   if (!state.vsReady || mps == null || Number.isNaN(mps)) return "0 " + state.unit + "/min";
@@ -119,58 +118,39 @@ function sampleClimb(smoothAlt, speed, lat, lon, now) {
   now = now || Date.now();
   if (smoothAlt == null || !Number.isFinite(smoothAlt)) return;
   state.vsReady = true;
-  if (now - state.lastClimbSample < 600) return;
+  if (now - state.lastClimbSample < 800) return;
   state.lastClimbSample = now;
   const spd = speed == null || !Number.isFinite(speed) ? 0 : speed;
   const log = state.climbLog;
   log.push({ t: now, alt: smoothAlt, speed: spd, lat: lat, lon: lon });
   while (log.length && now - log[0].t > 10000) log.shift();
-
-  if (state.terrainGrade != null && Number.isFinite(state.terrainGrade) && (state.gpsStuck || spd >= 0.8)) {
-    if (!log.length || now - log[0].t < CLIMB_WINDOW_MS) {
-      state.grade = state.grade * 0.45 + state.terrainGrade * 0.55;
-      state.vs = (state.grade / 100) * Math.max(spd, 0);
-      return;
-    }
-  }
-
   let older = null;
   for (let i = 0; i < log.length; i++) if (now - log[i].t >= CLIMB_WINDOW_MS) older = log[i];
-  if (!older) {
-    if (state.terrainGrade != null && spd >= 0.8) {
-      state.grade = state.grade * 0.45 + state.terrainGrade * 0.55;
-      state.vs = (state.grade / 100) * spd;
-    }
-    return;
-  }
+  if (!older) return;
   const last = log[log.length - 1];
   const dt = (now - older.t) / 1000;
-  if (dt < 1.2) return;
+  if (dt < 2) return;
   const rise = smoothAlt - older.alt;
   let run = 0;
   if (older.lat != null && last.lat != null) run = distM({ lat: older.lat, lon: older.lon }, { lat: last.lat, lon: last.lon });
   if (run < 8) {
     const avgSpeed = log.reduce((s, p) => s + p.speed, 0) / log.length;
-    run = Math.max(avgSpeed, spd) * dt;
+    run = avgSpeed * dt;
   }
-
   let rawGrade = null;
-  if (state.gpsStuck && state.terrainGrade != null) rawGrade = state.terrainGrade;
-  else if (spd >= 1 && Number.isFinite(rise)) rawGrade = (rise / dt) / spd * 100;
-  else if (Number.isFinite(rise) && run >= 6) rawGrade = (rise / run) * 100;
-  else if (state.terrainGrade != null && spd >= 0.8) rawGrade = state.terrainGrade;
-
+  if (Number.isFinite(rise) && run >= 8) rawGrade = (rise / run) * 100;
+  else if (Number.isFinite(rise) && spd >= 1.5) rawGrade = (rise / dt) / spd * 100;
   if (rawGrade == null || !Number.isFinite(rawGrade)) {
-    if (spd < 0.8 && state.terrainGrade == null) zeroClimb();
+    if (spd < 1.2) zeroClimb();
     return;
   }
   if (Math.abs(rawGrade) > 35) rawGrade = rawGrade > 0 ? 35 : -35;
-  state.grade = state.grade * 0.4 + rawGrade * 0.6;
-  if (Math.abs(state.grade) < 0.25 && (state.terrainGrade == null || Math.abs(state.terrainGrade) < 0.25)) {
+  state.grade = state.grade * 0.5 + rawGrade * 0.5;
+  if (Math.abs(state.grade) < 0.2 && Math.abs(rawGrade) < 0.2) {
     zeroClimb();
     return;
   }
-  state.vs = spd >= 0.8 ? (state.grade / 100) * spd : (state.grade / 100) * (run / Math.max(dt, 0.5));
+  state.vs = spd >= 1 ? (state.grade / 100) * spd : (state.grade / 100) * (run / Math.max(dt, 0.5));
 }
 
 function accrueGain(alt) {
