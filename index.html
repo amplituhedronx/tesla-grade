@@ -24,26 +24,24 @@
     html, body {
       margin: 0;
       width: 100%;
-      height: 100%;
+      min-height: 100%;
       background: var(--bg);
       color: var(--ink);
       font-family: Inter, "Universal Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      overflow: hidden;
       user-select: none;
     }
     body {
-      display: grid;
-      grid-template-columns: minmax(240px, 32%) minmax(0, 1fr);
-      grid-template-rows: 48px minmax(160px, 40%) minmax(0, 1fr);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      padding: 10px 14px 14px;
       gap: 10px;
-      padding: 10px 14px 12px;
     }
     header {
-      grid-column: 1 / -1;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      min-height: 0;
+      flex: 0 0 44px;
     }
     .brand { display: flex; align-items: center; gap: 12px; }
     .brand h1 {
@@ -66,21 +64,32 @@
       font: inherit; font-size: 14px; font-weight: 500; padding: 6px 14px; border-radius: 4px; min-height: 34px;
     }
     .seg button.on { background: var(--raised); color: #fff; }
+
+    .top {
+      display: flex;
+      gap: 10px;
+      flex: 0 0 auto;
+      min-height: 170px;
+    }
     .hero, .incline, .profile {
       background: var(--surface);
       border-radius: 10px;
       min-width: 0;
-      min-height: 0;
     }
     .hero {
-      grid-column: 1;
-      grid-row: 2;
+      flex: 0 0 32%;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       padding: 28px 12px 14px;
       position: relative;
+    }
+    .incline {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      padding: 10px 16px 10px;
     }
     .k {
       font-size: 11px;
@@ -91,37 +100,42 @@
     }
     .hero .k { position: absolute; top: 12px; left: 14px; }
     .alt-wrap { display: flex; align-items: flex-end; gap: 8px; line-height: 0.88; }
-    .alt { font-size: clamp(48px, 8vw, 84px); font-weight: 500; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+    .alt { font-size: 64px; font-weight: 500; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
     .alt-unit { font-size: 18px; color: var(--muted); padding-bottom: 8px; }
     .hero-meta { margin-top: 10px; display: flex; gap: 14px; color: var(--muted); font-size: 13px; }
     .hero-meta b { color: #fff; font-weight: 500; }
     .speed { margin-top: 4px; font-size: 13px; color: var(--muted); }
-    .incline {
-      grid-column: 2;
-      grid-row: 2;
-      display: flex;
-      flex-direction: column;
-      padding: 10px 16px 8px;
-    }
-    .incline-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex: 0 0 auto; }
-    .grade-read { font-size: clamp(28px, 4.4vw, 40px); font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+
+    .incline-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+    .grade-read { font-size: 36px; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
     .vs-read { font-size: 15px; color: var(--muted); }
-    .incline-canvas-wrap { flex: 1 1 auto; min-height: 90px; position: relative; }
-    #inclineCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    #inclineCanvas {
+      display: block;
+      width: 100%;
+      height: 110px;
+      margin-top: 4px;
+    }
+
     .profile {
-      grid-column: 1 / -1;
-      grid-row: 3;
+      flex: 0 0 auto;
       display: flex;
       flex-direction: column;
-      padding: 10px 14px 8px;
+      padding: 10px 14px 12px;
     }
-    .profile-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex: 0 0 auto; margin-bottom: 4px; }
+    .profile-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 6px; }
     .profile-stats { display: flex; align-items: center; gap: 16px; font-size: 13px; color: var(--muted); }
     .profile-stats .n { font-variant-numeric: tabular-nums; }
-    .profile-canvas-wrap { flex: 1 1 auto; min-height: 120px; position: relative; }
-    #profileCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    #profileCanvas {
+      display: block;
+      width: 100%;
+      height: 200px;
+      background: #12151a;
+      border-radius: 6px;
+    }
+
     .gate {
-      position: absolute; inset: 0; background: rgba(0,0,0,0.72);
+      position: fixed; top: 0; right: 0; bottom: 0; left: 0;
+      background: rgba(0,0,0,0.72);
       display: none; align-items: center; justify-content: center; padding: 24px; z-index: 5;
     }
     .gate.show { display: flex; }
@@ -145,23 +159,27 @@
       <div class="seg"><button id="btnM" class="on" type="button">m</button><button id="btnFt" type="button">ft</button></div>
     </div>
   </header>
-  <section class="hero">
-    <div class="k">Altitude</div>
-    <div class="alt-wrap"><div class="alt" id="alt">—</div><div class="alt-unit" id="altUnit">m</div></div>
-    <div class="hero-meta">
-      <span>GPS <b id="gpsAlt">—</b></span>
-      <span>Terrain <b id="terrainAlt">—</b></span>
-    </div>
-    <div class="speed" id="speed">—</div>
-  </section>
-  <section class="incline">
-    <div class="incline-head">
-      <span class="k">Grade</span>
-      <span class="grade-read" id="grade">0%</span>
-      <span class="vs-read" id="vs">0 m/min</span>
-    </div>
-    <div class="incline-canvas-wrap"><canvas id="inclineCanvas"></canvas></div>
-  </section>
+
+  <div class="top">
+    <section class="hero">
+      <div class="k">Altitude</div>
+      <div class="alt-wrap"><div class="alt" id="alt">—</div><div class="alt-unit" id="altUnit">m</div></div>
+      <div class="hero-meta">
+        <span>GPS <b id="gpsAlt">—</b></span>
+        <span>Terrain <b id="terrainAlt">—</b></span>
+      </div>
+      <div class="speed" id="speed">—</div>
+    </section>
+    <section class="incline">
+      <div class="incline-head">
+        <span class="k">Grade</span>
+        <span class="grade-read" id="grade">0%</span>
+        <span class="vs-read" id="vs">0 m/min</span>
+      </div>
+      <canvas id="inclineCanvas" width="640" height="110"></canvas>
+    </section>
+  </div>
+
   <section class="profile">
     <div class="profile-head">
       <span class="k">Altitude profile</span>
@@ -171,8 +189,9 @@
         <span id="profileRange">session</span>
       </div>
     </div>
-    <div class="profile-canvas-wrap"><canvas id="profileCanvas"></canvas></div>
+    <canvas id="profileCanvas" width="1200" height="200"></canvas>
   </section>
+
   <div class="gate" id="gate">
     <div class="gate-card">
       <h2 id="gateTitle">Enable location</h2>
