@@ -44,7 +44,7 @@ function fmtAlt(m) {
   return v == null ? "\u2014" : (Math.round(v * 10) / 10).toFixed(1);
 }
 function fmtVs(mps) {
-  if (!state.vsReady || mps == null || Number.isFinite(mps) === false) return "0 " + state.unit + "/min";
+  if (!state.vsReady || mps == null || Number.isNaN(mps)) return "0 " + state.unit + "/min";
   const v = Math.round(mps * 60 * (state.unit === "ft" ? 3.28084 : 1));
   return (v > 0 ? "+" : "") + v + " " + state.unit + "/min";
 }
@@ -91,62 +91,37 @@ function sampleClimb(smoothAlt, speed) {
   const now = Date.now();
   if (smoothAlt == null || !Number.isFinite(smoothAlt)) return;
   state.vsReady = true;
-
   if (now - state.lastClimbSample < 800) return;
   state.lastClimbSample = now;
-
   const spd = speed == null || !Number.isFinite(speed) ? 0 : speed;
   const log = state.climbLog;
   log.push({ t: now, alt: smoothAlt, speed: spd });
   while (log.length && now - log[0].t > 10000) log.shift();
-
   const avgSpeed = log.reduce(function (s, p) { return s + p.speed; }, 0) / log.length;
-  if (avgSpeed < 1.2) {
-    zeroClimb();
-    return;
-  }
-
+  if (avgSpeed < 1.2) { zeroClimb(); return; }
   let older = null;
   for (let i = 0; i < log.length; i++) {
     if (now - log[i].t >= CLIMB_WINDOW_MS) older = log[i];
   }
   if (!older) return;
-
   const dt = (now - older.t) / 1000;
   if (dt < 2) return;
-
   const rise = smoothAlt - older.alt;
   const run = avgSpeed * dt;
-  if (!Number.isFinite(rise) || run < 8) {
-    zeroClimb();
-    return;
-  }
-
+  if (!Number.isFinite(rise) || run < 8) { zeroClimb(); return; }
   const rawGrade = (rise / run) * 100;
   if (!Number.isFinite(rawGrade)) return;
-
   state.grade = state.grade * 0.65 + rawGrade * 0.35;
-  if (Math.abs(state.grade) < 0.3) {
-    zeroClimb();
-    return;
-  }
+  if (Math.abs(state.grade) < 0.3) { zeroClimb(); return; }
   state.vs = (state.grade / 100) * avgSpeed;
 }
 
 function accrueGain(alt) {
   if (alt == null || !Number.isFinite(alt)) return;
-  if (state.lastElAlt == null) {
-    state.lastElAlt = alt;
-    return;
-  }
+  if (state.lastElAlt == null) { state.lastElAlt = alt; return; }
   const d = alt - state.lastElAlt;
-  if (d >= EL_DB) {
-    state.gain += d;
-    state.lastElAlt = alt;
-  } else if (d <= -EL_DB) {
-    state.loss += -d;
-    state.lastElAlt = alt;
-  }
+  if (d >= EL_DB) { state.gain += d; state.lastElAlt = alt; }
+  else if (d <= -EL_DB) { state.loss += -d; state.lastElAlt = alt; }
 }
 
 function trackDistance(c) {
@@ -155,14 +130,10 @@ function trackDistance(c) {
   state.lastWall = now;
   const spd = c.speed != null && Number.isFinite(c.speed) && c.speed > 0 ? c.speed : 0;
   state.speed = spd;
-
   let step = 0;
   if (spd >= 0.3 && dt > 0 && dt < 20) step = spd * dt;
   if (c.latitude != null && c.longitude != null && state.lastLat != null) {
-    const geo = distM(
-      { lat: state.lastLat, lon: state.lastLon },
-      { lat: c.latitude, lon: c.longitude }
-    );
+    const geo = distM({ lat: state.lastLat, lon: state.lastLon }, { lat: c.latitude, lon: c.longitude });
     if (Number.isFinite(geo) && geo >= 2 && geo < 400 && step < 1) step = geo;
   }
   if (step > 0 && step < 150) state.odo += step;
@@ -176,15 +147,8 @@ function pushProfile(alt) {
   if (alt == null || !Number.isFinite(alt)) return;
   const now = Date.now();
   const row = { t: now, alt: alt, dist: state.odo };
-  if (!state.profile.length) {
-    state.profile.push(row);
-    state.lastProfileT = now;
-    return;
-  }
-  if (now - state.lastProfileT < 800) {
-    state.profile[state.profile.length - 1] = row;
-    return;
-  }
+  if (!state.profile.length) { state.profile.push(row); state.lastProfileT = now; return; }
+  if (now - state.lastProfileT < 800) { state.profile[state.profile.length - 1] = row; return; }
   state.profile.push(row);
   state.lastProfileT = now;
   if (state.profile.length > 2500) state.profile = state.profile.slice(-1800);
@@ -233,7 +197,6 @@ function render(pos) {
   state.lastPos = pos;
   const c = pos.coords;
   const gpsAlt = c.altitude;
-
   if (gpsAlt != null && Number.isFinite(gpsAlt)) {
     if (state.smoothAlt == null) state.smoothAlt = gpsAlt;
     else state.smoothAlt = state.smoothAlt * 0.72 + gpsAlt * 0.28;
@@ -243,11 +206,9 @@ function render(pos) {
     sampleClimb(state.smoothAlt, c.speed);
     accrueGain(state.smoothAlt);
   }
-
   trackDistance(c);
   pushProfile(state.smoothAlt);
   paint();
-
   const acc = c.accuracy;
   if (acc != null && acc <= 12) setStatus("live", "GPS lock");
   else if (acc != null && acc <= 40) setStatus("live", "GPS \u00b1" + Math.round(acc) + " m");
@@ -257,24 +218,11 @@ function render(pos) {
 
 function drawIncline() {
   state.drawGrade += (state.grade - state.drawGrade) * 0.18;
-  const wedge = $("inclineWedge");
   const bar = $("inclineBar");
-  if (!wedge || !bar) return;
-  const w = 800, cy = 55, cx = w / 2;
+  if (!bar) return;
   const clamped = Math.max(-18, Math.min(18, state.drawGrade));
   const vis = Math.atan(clamped / 100) * 180 / Math.PI * 2.2;
-  const rad = (-vis * Math.PI) / 180;
-  const barW = w * 0.78;
-  const hx = (barW / 2) * Math.cos(rad);
-  const hy = (barW / 2) * Math.sin(rad);
-  const fillA = Math.min(0.4, 0.08 + Math.abs(clamped) / 32);
-  wedge.setAttribute("points",
-    (cx - hx) + "," + (cy - hy) + " " +
-    (cx + hx) + "," + (cy + hy) + " " +
-    (cx + hx) + "," + cy + " " +
-    (cx - hx) + "," + cy);
-  wedge.setAttribute("fill", "rgba(62,106,225," + fillA + ")");
-  bar.setAttribute("transform", "translate(" + cx + " " + cy + ") rotate(" + (rad * 180 / Math.PI) + ")");
+  bar.setAttribute("transform", "translate(400 55) rotate(" + (-vis) + ")");
 }
 
 function drawProfile() {
@@ -320,13 +268,11 @@ function drawProfile() {
     y1 = mid + 20;
   }
   const spanY = y1 - y0 || 1;
-
   function xy(p) {
     const x = padL + ((p.dist - d0) / spanX) * iw;
     const y = padT + (1 - (toDisp(p.alt) - y0) / spanY) * ih;
     return [x, y];
   }
-
   let line = "", area = "";
   for (let i = 0; i < pts.length; i++) {
     const pt = xy(pts[i]);
@@ -363,12 +309,9 @@ function onError(err) {
   const code = err && err.code;
   if (code === 1) {
     setStatus("off", "Location blocked");
-    showGate(
-      "Location blocked",
-      isAppleTouch
-        ? "Settings \u2192 Safari \u2192 Location \u2192 Ask or Allow, then reload and tap Enable location."
-        : "Allow location in site settings, then tap Enable location."
-    );
+    showGate("Location blocked", isAppleTouch
+      ? "Settings \u2192 Safari \u2192 Location \u2192 Ask or Allow, then reload and tap Enable location."
+      : "Allow location in site settings, then tap Enable location.");
   } else if (code === 2) setStatus("wait", "GPS unavailable");
   else if (code === 3) setStatus("wait", "GPS timeout");
   else setStatus("wait", err && err.message ? err.message : "GPS error");
