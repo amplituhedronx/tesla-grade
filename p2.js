@@ -1,5 +1,4 @@
 async function fetchTerrain(lat, lon, heading) {
-  if (state.mode === "sim") return;
   const now = Date.now();
   if (now - state.lastElevFetch < 8000) return;
   if (state.lastElevAt && distM(state.lastElevAt, { lat: lat, lon: lon }) < 50 && now - state.lastElevFetch < 15000) return;
@@ -87,14 +86,12 @@ function applyFix(alt, speed, lat, lon, now, heading) {
 function render(pos, nowOverride) {
   const c = pos.coords;
   applyFix(c.altitude, c.speed, c.latitude, c.longitude, nowOverride || Date.now(), c.heading);
-  if (state.mode !== "sim") {
-    const acc = c.accuracy;
-    if (acc != null && acc <= 12) setStatus("live", "GPS lock");
-    else if (acc != null && acc <= 40) setStatus("live", "GPS \u00b1" + Math.round(acc) + " m");
-    else if (acc != null) setStatus("wait", "GPS \u00b1" + Math.round(acc) + " m");
-    else setStatus("live", "GPS live");
-    if (c.latitude != null) fetchTerrain(c.latitude, c.longitude, state.heading);
-  }
+  const acc = c.accuracy;
+  if (acc != null && acc <= 12) setStatus("live", "GPS lock");
+  else if (acc != null && acc <= 40) setStatus("live", "GPS \u00b1" + Math.round(acc) + " m");
+  else if (acc != null) setStatus("wait", "GPS \u00b1" + Math.round(acc) + " m");
+  else setStatus("live", "GPS live");
+  if (c.latitude != null) fetchTerrain(c.latitude, c.longitude, state.heading);
 }
 
 function drawIncline() {

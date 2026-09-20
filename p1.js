@@ -1,27 +1,17 @@
 const $ = (id) => document.getElementById(id);
 const CLIMB_WINDOW_MS = 4000;
 const EL_DB = 3;
-const SEGMENTS = [
-  { dt: 18, grade: 1.4, speedKmh: 78 },
-  { dt: 22, grade: 6.8, speedKmh: 46 },
-  { dt: 16, grade: 11.2, speedKmh: 36 },
-  { dt: 14, grade: 4.6, speedKmh: 44 },
-  { dt: 10, grade: 0.5, speedKmh: 52 },
-  { dt: 20, grade: -8.4, speedKmh: 58 },
-  { dt: 14, grade: -3.1, speedKmh: 72 }
-];
-const CYCLE = SEGMENTS.reduce((s, x) => s + x.dt, 0);
 
 const state = {
   unit: localStorage.getItem("grade-unit") || "m",
   mode: "gps",
-  watchId: null, pollId: null, simId: null, tickId: null,
+  watchId: null, pollId: null, tickId: null,
   lastPos: null, lastAlt: null, lastClimbSample: 0, lastFixT: 0, lastMoveT: 0, lastTrackT: 0,
   climbLog: [], profile: [],
   smoothAlt: null, vs: 0, grade: 0, vsReady: false,
   speed: 0, odo: 0, gain: 0, loss: 0, lastAltForEl: null,
   lastElevFetch: 0, lastElevAt: null, terrain: null,
-  starting: false, drawGrade: 0, sim: null, lastLat: null, lastLon: null,
+  starting: false, drawGrade: 0, lastLat: null, lastLon: null,
   heading: null, trackAlt: null, ahead: [], gpsAltHist: [], gpsStuck: false,
   terrainGrade: null
 };
@@ -39,24 +29,13 @@ function setUnit(u) {
   paintReadouts();
   drawProfile();
 }
-function setMode(mode) {
-  if (state.mode === mode) return;
-  state.mode = mode;
-  $("btnSim").classList.toggle("on", mode === "sim");
-  $("btnGps").classList.toggle("on", mode === "gps");
-  stopGps(); stopSim(); resetSession();
-  $("gate").classList.remove("show");
-  if (mode === "sim") startSim(); else startWatch();
-}
 function resetSession() {
   state.climbLog = []; state.profile = [];
-  state.smoothAlt = null; state.vs = 0; state.grade = 0; state.vsReady = false;
-  state.speed = 0; state.odo = 0; state.gain = 0; state.loss = 0;
-  state.lastAltForEl = null; state.lastClimbSample = 0; state.lastFixT = 0; state.lastMoveT = 0;
-  state.lastTrackT = 0;
-  state.lastPos = null; state.lastAlt = null; state.drawGrade = 0;
-  state.terrain = null; state.lastLat = null; state.lastLon = null;
-  state.heading = null; state.trackAlt = null; state.ahead = [];
+  state.vs = 0; state.grade = 0; state.vsReady = false;
+  state.odo = 0; state.gain = 0; state.loss = 0;
+  state.lastAltForEl = state.trackAlt != null ? state.trackAlt : state.smoothAlt;
+  state.lastClimbSample = 0; state.lastFixT = 0; state.lastMoveT = 0; state.lastTrackT = 0;
+  state.drawGrade = 0; state.ahead = [];
   state.gpsAltHist = []; state.gpsStuck = false; state.terrainGrade = null;
   paintReadouts(); drawIncline(); drawProfile();
 }
