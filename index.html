@@ -25,18 +25,19 @@
     .seg { display: flex; background: var(--surface); border-radius: 6px; padding: 3px; }
     .seg button { appearance: none; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 500; padding: 6px 14px; border-radius: 4px; min-height: 34px; }
     .seg button.on { background: var(--raised); color: #fff; }
-    .top { display: flex; gap: 10px; }
+    .top { display: flex; gap: 10px; align-items: stretch; }
     .hero, .incline, .profile { background: var(--surface); border-radius: 10px; min-width: 0; }
-    .hero { flex: 0 0 40%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 22px 14px 12px; position: relative; }
+    .hero { flex: 0 0 50%; min-width: 320px; display: flex; flex-direction: column; align-items: stretch; justify-content: center; padding: 16px 18px 12px; position: relative; overflow: visible; }
     .incline { flex: 1; padding: 10px 16px 8px; }
     .k { font-size: 11px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); }
-    .hero .k { position: absolute; top: 12px; left: 14px; }
-    .alt-wrap { display: flex; align-items: flex-end; gap: 8px; line-height: 0.88; }
-    .alt { font-size: 48px; font-weight: 500; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
-    .alt-unit { font-size: 16px; color: var(--muted); padding-bottom: 6px; }
-    .hero-meta { margin-top: 10px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 16px; color: var(--muted); font-size: 12px; }
-    .hero-meta b { color: #fff; font-weight: 500; }
-    .speed { margin-top: 4px; font-size: 13px; color: var(--muted); }
+    .hero .k { position: absolute; top: 12px; left: 18px; }
+    .alt-wrap { display: flex; align-items: flex-end; justify-content: center; gap: 8px; line-height: 0.9; margin-top: 10px; min-width: 0; }
+    .alt { font-size: clamp(40px, 5.2vw, 58px); font-weight: 500; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .alt-unit { font-size: 18px; color: var(--muted); padding-bottom: 6px; flex: 0 0 auto; }
+    .hero-meta { margin-top: 10px; display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--muted); font-size: 13px; }
+    .hero-meta span { white-space: nowrap; }
+    .hero-meta b { color: #fff; font-weight: 500; font-variant-numeric: tabular-nums; }
+    .speed { margin-top: 4px; font-size: 13px; color: var(--muted); text-align: center; }
     .incline-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
     .grade-read { font-size: 36px; font-weight: 500; font-variant-numeric: tabular-nums; }
     .vs-read { font-size: 15px; color: var(--muted); }
@@ -51,6 +52,10 @@
     .gate-card h2 { margin: 0 0 8px; font-size: 22px; font-weight: 500; }
     .gate-card p { margin: 0 0 20px; color: var(--muted); font-size: 15px; line-height: 1.45; }
     .cta { appearance: none; border: 0; background: var(--blue); color: #fff; font: inherit; font-size: 16px; border-radius: 4px; min-height: 52px; width: 100%; }
+    @media (max-width: 820px) {
+      .top { flex-direction: column; }
+      .hero { flex: 1 1 auto; min-width: 0; width: 100%; }
+    }
   </style>
 </head>
 <body>
@@ -95,17 +100,17 @@
     </div>
     <svg id="profileSvg" viewBox="0 0 1000 220" preserveAspectRatio="xMidYMid meet">
       <rect width="1000" height="220" fill="#12151a"/>
-      <path id="profileAxes" d="M88 16 V188 H976" fill="none" stroke="#2c2f36" stroke-width="1"/>
+      <path id="profileAxes" d="M100 16 V188 H976" fill="none" stroke="#2c2f36" stroke-width="1"/>
       <path id="profileFill" fill="rgba(62,106,225,0.22)" d=""/>
       <path id="profileLine" fill="none" stroke="#3e6ae1" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" d=""/>
       <path id="profileAhead" fill="none" stroke="#7aa2ff" stroke-width="3" stroke-dasharray="10 8" stroke-linejoin="round" stroke-linecap="round" d=""/>
       <circle id="profileDot" cx="-20" cy="-20" r="5" fill="#fff"/>
-      <text id="profileMax" x="80" y="24" fill="#8e8e8e" font-size="13" text-anchor="end"></text>
-      <text id="profileMin" x="80" y="188" fill="#8e8e8e" font-size="13" text-anchor="end"></text>
-      <text id="profileX0" x="88" y="210" fill="#8e8e8e" font-size="13">0.00 km</text>
-      <text id="profileX1" x="525" y="210" fill="#8e8e8e" font-size="14" text-anchor="middle"></text>
+      <text id="profileMax" x="92" y="24" fill="#8e8e8e" font-size="13" text-anchor="end"></text>
+      <text id="profileMin" x="92" y="188" fill="#8e8e8e" font-size="13" text-anchor="end"></text>
+      <text id="profileX0" x="100" y="210" fill="#8e8e8e" font-size="13">0.00 km</text>
+      <text id="profileX1" x="530" y="210" fill="#8e8e8e" font-size="14" text-anchor="middle"></text>
       <text id="profileX2" x="980" y="210" fill="#8e8e8e" font-size="14" text-anchor="end"></text>
-      <text id="profileHint" x="525" y="110" fill="#8e8e8e" font-size="16" text-anchor="middle">Waiting for GPS</text>
+      <text id="profileHint" x="530" y="110" fill="#8e8e8e" font-size="16" text-anchor="middle">Waiting for GPS</text>
       <g id="profileLabels"></g>
     </svg>
   </section>
@@ -116,8 +121,8 @@
       <button class="cta" id="askLoc" type="button">Enable location</button>
     </div>
   </div>
-  <script src="p1.js"></script>
-  <script src="p2.js"></script>
-  <script src="p3.js"></script>
+  <script src="p1.js?v=21"></script>
+  <script src="p2.js?v=21"></script>
+  <script src="p3.js?v=21"></script>
 </body>
 </html>
