@@ -165,7 +165,7 @@ function drawProfile() {
   }
 }
 
-function createSim() { return { elapsed: 0, alt: 1242, lat: 46.561, lon: 8.336 }; }
+function createSim() { return { elapsed: 0, alt: 542, lat: 46.561, lon: 8.336 }; }
 function stepSim(sim, dt) {
   sim.elapsed += dt;
   let t = sim.elapsed % CYCLE, seg = SEGMENTS[0];
@@ -180,34 +180,24 @@ function stepSim(sim, dt) {
 }
 function startSim() {
   state.sim = createSim();
-  state.terrain = state.sim.alt;
+  state.terrain = 536;
   setStatus("live", "Simulating");
   const seed0 = Date.now() - 35000;
   for (let i = 0; i < 35; i++) {
     const fix = stepSim(state.sim, 1);
-    state.terrain = fix.alt;
-    state.terrainGrade = fix.grade;
-    state.grade = fix.grade;
-    state.ahead = [80, 160, 280, 450].map(function (d) {
+    state.ahead = [120, 250, 450, 700].map(function (d) {
       return { dist: d, alt: fix.alt + d * (fix.grade / 100) };
     });
     applyFix(fix.alt, fix.speed, fix.lat, fix.lon, seed0 + i * 1000);
-    state.grade = state.grade * 0.25 + fix.grade * 0.75;
   }
   drawIncline(); drawProfile();
   state.simId = setInterval(function () {
     if (!state.sim) return;
     const fix = stepSim(state.sim, 1);
-    state.terrain = fix.alt;
-    state.terrainGrade = fix.grade;
-    state.ahead = [80, 160, 280, 450].map(function (d) {
+    state.ahead = [120, 250, 450, 700].map(function (d) {
       return { dist: d, alt: fix.alt + d * (fix.grade / 100) };
     });
     applyFix(fix.alt, fix.speed, fix.lat, fix.lon, Date.now());
-    state.grade = state.grade * 0.25 + fix.grade * 0.75;
-    state.vs = (state.grade / 100) * fix.speed;
-    state.vsReady = true;
-    paintReadouts();
     drawIncline(); drawProfile();
   }, 1000);
 }
