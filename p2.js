@@ -35,7 +35,7 @@ async function fetchTerrain(lat, lon, heading) {
 }
 
 function paintReadouts() {
-  $("alt").textContent = fmtAlt(state.trackAlt != null ? state.trackAlt : state.smoothAlt);
+  $("alt").textContent = fmtAlt(state.smoothAlt != null ? state.smoothAlt : state.trackAlt);
   $("gpsAlt").textContent = state.lastAlt == null ? "\u2014" : fmtAlt1(state.lastAlt);
   $("terrainAlt").textContent = state.terrain == null ? "\u2014" : fmtAlt1(state.terrain);
   $("vs").textContent = fmtVs(state.vs);
@@ -44,6 +44,13 @@ function paintReadouts() {
   const u = state.unit;
   $("gain").textContent = "\u2191 " + Math.round(toDisp(state.gain) || 0) + " " + u;
   $("loss").textContent = "\u2193 " + Math.round(toDisp(state.loss) || 0) + " " + u;
+  if ($("sessDist")) $("sessDist").textContent = fmtDist(state.odo);
+  if ($("sessRange")) {
+    $("sessRange").textContent = state.minAlt == null ? "\u2014" : fmtAlt(state.minAlt) + " \u2013 " + fmtAlt(state.maxAlt);
+  }
+  if ($("sessHdg")) $("sessHdg").textContent = fmtHdg(state.heading);
+  if ($("sessLat")) $("sessLat").textContent = fmtCoord(state.lastLat);
+  if ($("sessLon")) $("sessLon").textContent = fmtCoord(state.lastLon);
 }
 
 function applyFix(alt, speed, lat, lon, now, heading) {
@@ -57,8 +64,11 @@ function applyFix(alt, speed, lat, lon, now, heading) {
 
   if (alt != null && Number.isFinite(alt)) {
     if (state.smoothAlt == null) state.smoothAlt = alt;
-    else state.smoothAlt = state.smoothAlt * 0.5 + alt * 0.5;
+    else state.smoothAlt = state.smoothAlt * 0.72 + alt * 0.28;
     state.lastAlt = alt;
+    if (state.minAlt == null || alt < state.minAlt) state.minAlt = alt;
+    if (state.maxAlt == null || alt > state.maxAlt) state.maxAlt = alt;
+    sampleClimb(state.smoothAlt, speed);
     state.gpsAltHist.push(alt);
     if (state.gpsAltHist.length > 12) state.gpsAltHist.shift();
     if (state.gpsAltHist.length >= 8) {
@@ -77,7 +87,6 @@ function applyFix(alt, speed, lat, lon, now, heading) {
     if (state.trackAlt == null) state.trackAlt = src;
     else state.trackAlt = state.trackAlt * 0.45 + src * 0.55;
     accrueGain(state.trackAlt);
-    sampleClimb(state.trackAlt, spd, lat, lon, now);
     pushProfile(now, state.trackAlt);
   }
   paintReadouts();

@@ -13,7 +13,7 @@ const state = {
   lastElevFetch: 0, lastElevAt: null, terrain: null,
   starting: false, drawGrade: 0, lastLat: null, lastLon: null,
   heading: null, trackAlt: null, ahead: [], gpsAltHist: [], gpsStuck: false,
-  terrainGrade: null
+  terrainGrade: null, minAlt: null, maxAlt: null
 };
 
 const isTesla = /Tesla/i.test(navigator.userAgent);
@@ -37,6 +37,7 @@ function resetSession() {
   state.lastClimbSample = 0; state.lastFixT = 0; state.lastMoveT = 0; state.lastTrackT = 0;
   state.drawGrade = 0; state.ahead = [];
   state.gpsAltHist = []; state.gpsStuck = false; state.terrainGrade = null;
+  state.minAlt = null; state.maxAlt = null;
   paintReadouts(); drawIncline(); drawProfile();
 }
 function toDisp(m) { if (m == null || Number.isNaN(m)) return null; return state.unit === "ft" ? m * 3.28084 : m; }
@@ -69,6 +70,16 @@ function fmtDist(m) {
   if (state.unit === "ft") return (n / 1609.344).toFixed(2) + " mi";
   return (n / 1000).toFixed(2) + " km";
 }
+function fmtHdg(h) {
+  if (h == null || Number.isNaN(h)) return "\u2014";
+  const dirs = ["N","NE","E","SE","S","SW","W","NW"];
+  const i = Math.round(h / 45) % 8;
+  return Math.round(h) + "\u00b0 " + dirs[i];
+}
+function fmtCoord(n) {
+  if (n == null || !Number.isFinite(n)) return "\u2014";
+  return n.toFixed(5);
+}
 function setStatus(kind, text) { $("dot").className = "dot " + kind; $("statusText").textContent = text; }
 function distM(a, b) {
   const R = 6371000;
@@ -93,43 +104,51 @@ function destPoint(lat, lon, headingDeg, meters) {
   return { lat: p2 * 180 / Math.PI, lon: l2 * 180 / Math.PI };
 }
 
-function sampleClimb(smoothAlt, speed, lat, lon, now) {
-  now = now || Date.now();
+function sampleClimb(smoothAlt, speed) {
+  const now = Date.now();
   if (smoothAlt == null || !Number.isFinite(smoothAlt)) return;
   state.vsReady = true;
+
   if (now - state.lastClimbSample < 800) return;
   state.lastClimbSample = now;
+
   const spd = speed == null || !Number.isFinite(speed) ? 0 : speed;
   const log = state.climbLog;
-  log.push({ t: now, alt: smoothAlt, speed: spd, lat: lat, lon: lon });
+  log.push({ t: now, alt: smoothAlt, speed: spd });
   while (log.length && now - log[0].t > 10000) log.shift();
-  let older = null;
-  for (let i = 0; i < log.length; i++) if (now - log[i].t >= CLIMB_WINDOW_MS) older = log[i];
-  if (!older) return;
-  const last = log[log.length - 1];
-  const dt = (now - older.t) / 1000;
-  if (dt < 2) return;
-  const rise = smoothAlt - older.alt;
-  let run = 0;
-  if (older.lat != null && last.lat != null) run = distM({ lat: older.lat, lon: older.lon }, { lat: last.lat, lon: last.lon });
-  if (run < 8) {
-    const avgSpeed = log.reduce((s, p) => s + p.speed, 0) / log.length;
-    run = avgSpeed * dt;
-  }
-  let rawGrade = null;
-  if (Number.isFinite(rise) && run >= 8) rawGrade = (rise / run) * 100;
-  else if (Number.isFinite(rise) && spd >= 1.5) rawGrade = (rise / dt) / spd * 100;
-  if (rawGrade == null || !Number.isFinite(rawGrade)) {
-    if (spd < 1.2) zeroClimb();
-    return;
-  }
-  if (Math.abs(rawGrade) > 35) rawGrade = rawGrade > 0 ? 35 : -35;
-  state.grade = state.grade * 0.5 + rawGrade * 0.5;
-  if (Math.abs(state.grade) < 0.2 && Math.abs(rawGrade) < 0.2) {
+
+  const avgSpeed = log.reduce((s, p) => s + p.speed, 0) / log.length;
+  if (avgSpeed < 1.2) {
     zeroClimb();
     return;
   }
-  state.vs = spd >= 1 ? (state.grade / 100) * spd : (state.grade / 100) * (run / Math.max(dt, 0.5));
+
+  let older = null;
+  for (let i = 0; i < log.length; i++) {
+    if (now - log[i].t >= CLIMB_WINDOW_MS) older = log[i];
+  }
+  if (!older) return;
+
+  const dt = (now - older.t) / 1000;
+  if (dt < 2) return;
+
+  const rise = smoothAlt - older.alt;
+  const run = avgSpeed * dt;
+  if (!Number.isFinite(rise) || run < 8) {
+    zeroClimb();
+    return;
+  }
+
+  const rawGrade = (rise / run) * 100;
+  if (!Number.isFinite(rawGrade)) return;
+
+  state.grade = state.grade * 0.65 + rawGrade * 0.35;
+  if (Math.abs(state.grade) < 0.3) {
+    zeroClimb();
+    return;
+  }
+
+  state.vs = (state.grade / 100) * avgSpeed;
 }
 
 function accrueGain(alt) {
