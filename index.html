@@ -7,9 +7,16 @@
   <title>Grade</title>
   <style>
     :root {
-      --bg: #000; --surface: #171a20; --raised: #2a2d34; --ink: #fff;
-      --muted: #8e8e8e; --dim: #5c5e62; --blue: #3e6ae1;
-      --ok: #3dd68c; --warn: #f5a524; --bad: #e82127;
+      --bg: #000;
+      --surface: #171a20;
+      --raised: #2a2d34;
+      --ink: #fff;
+      --muted: #8e8e8e;
+      --dim: #5c5e62;
+      --blue: #3e6ae1;
+      --ok: #3dd68c;
+      --warn: #f5a524;
+      --bad: #e82127;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body {
@@ -18,23 +25,42 @@
       user-select: none; overflow: hidden;
     }
     body { display: flex; flex-direction: column; padding: 10px 14px 12px; gap: 10px; }
-    header { display: flex; align-items: center; justify-content: space-between; height: 44px; flex: 0 0 44px; }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 44px; flex: 0 0 44px;
+    }
     .brand { display: flex; align-items: center; gap: 12px; }
-    .brand h1 { margin: 0; font-size: 13px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim); }
+    .brand h1 {
+      margin: 0; font-size: 13px; font-weight: 500;
+      letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim);
+    }
     .status { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
     .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
-    .dot.live { background: var(--ok); } .dot.wait { background: var(--warn); } .dot.off { background: var(--bad); }
+    .dot.live { background: var(--ok); }
+    .dot.wait { background: var(--warn); }
+    .dot.off { background: var(--bad); }
     .toggles { display: flex; gap: 8px; }
     .seg { display: flex; background: var(--surface); border-radius: 6px; padding: 3px; }
-    .seg button { appearance: none; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 500; padding: 6px 14px; border-radius: 4px; min-height: 34px; }
+    .seg button {
+      appearance: none; border: 0; background: transparent; color: var(--muted);
+      font: inherit; font-size: 14px; font-weight: 500; padding: 6px 14px;
+      border-radius: 4px; min-height: 34px;
+    }
     .seg button.on { background: var(--raised); color: #fff; }
     .top { display: flex; gap: 10px; flex: 0 0 auto; }
     .card { background: var(--surface); border-radius: 10px; min-width: 0; }
-    .hero { flex: 0 0 38%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 12px 12px; position: relative; }
+    .hero {
+      flex: 0 0 38%; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 20px 12px 12px; position: relative;
+    }
     .k { font-size: 11px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); }
     .hero .k { position: absolute; top: 12px; left: 14px; }
     .alt-wrap { display: flex; align-items: flex-end; gap: 6px; line-height: 0.88; }
-    .alt { font-size: 48px; font-weight: 500; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .alt {
+      font-size: 48px; font-weight: 500; letter-spacing: -0.04em;
+      font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
     .alt-unit { font-size: 16px; color: var(--muted); padding-bottom: 6px; }
     .speed { margin-top: 8px; font-size: 14px; color: var(--muted); }
     .incline { flex: 1; padding: 10px 16px 8px; }
@@ -42,17 +68,36 @@
     .grade-read { font-size: 36px; font-weight: 500; font-variant-numeric: tabular-nums; }
     .vs-read { font-size: 15px; color: var(--muted); }
     #inclineSvg { display: block; width: 100%; height: 108px; }
-    .profile { flex: 1; min-height: 0; padding: 10px 14px 10px; display: flex; flex-direction: column; }
-    .profile-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 6px; flex: 0 0 auto; }
+    .profile {
+      flex: 1; min-height: 0; padding: 10px 14px 10px;
+      display: flex; flex-direction: column;
+    }
+    .profile-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      gap: 10px; margin-bottom: 6px; flex: 0 0 auto;
+    }
     .profile-stats { display: flex; gap: 16px; font-size: 14px; color: var(--muted); }
     .profile-stats b { color: #fff; font-weight: 500; }
-    #profileSvg { display: block; width: 100%; flex: 1; min-height: 160px; background: #12151a; border-radius: 6px; }
-    .gate { position: fixed; inset: 0; background: rgba(0,0,0,0.72); display: none; align-items: center; justify-content: center; padding: 24px; z-index: 5; }
+    #profileSvg {
+      display: block; width: 100%; flex: 1; min-height: 160px;
+      background: #12151a; border-radius: 6px;
+    }
+    .gate {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.72);
+      display: none; align-items: center; justify-content: center;
+      padding: 24px; z-index: 5;
+    }
     .gate.show { display: flex; }
-    .gate-card { background: var(--surface); border-radius: 12px; padding: 28px; max-width: 420px; text-align: center; }
+    .gate-card {
+      background: var(--surface); border-radius: 12px; padding: 28px;
+      max-width: 420px; text-align: center;
+    }
     .gate-card h2 { margin: 0 0 8px; font-size: 22px; font-weight: 500; }
     .gate-card p { margin: 0 0 20px; color: var(--muted); font-size: 15px; line-height: 1.45; }
-    .cta { appearance: none; border: 0; background: var(--blue); color: #fff; font: inherit; font-size: 16px; border-radius: 4px; min-height: 52px; width: 100%; }
+    .cta {
+      appearance: none; border: 0; background: var(--blue); color: #fff;
+      font: inherit; font-size: 16px; border-radius: 4px; min-height: 52px; width: 100%;
+    }
   </style>
 </head>
 <body>
@@ -63,13 +108,20 @@
     </div>
     <div class="toggles">
       <div class="seg"><button id="btnReset" type="button">Reset</button></div>
-      <div class="seg"><button id="btnM" class="on" type="button">m</button><button id="btnFt" type="button">ft</button></div>
+      <div class="seg">
+        <button id="btnM" class="on" type="button">m</button>
+        <button id="btnFt" type="button">ft</button>
+      </div>
     </div>
   </header>
+
   <div class="top">
     <section class="card hero">
       <div class="k">Altitude</div>
-      <div class="alt-wrap"><div class="alt" id="alt">—</div><div class="alt-unit" id="altUnit">m</div></div>
+      <div class="alt-wrap">
+        <div class="alt" id="alt">—</div>
+        <div class="alt-unit" id="altUnit">m</div>
+      </div>
       <div class="speed" id="speed">—</div>
     </section>
     <section class="card incline">
@@ -85,6 +137,7 @@
       </svg>
     </section>
   </div>
+
   <section class="card profile">
     <div class="profile-head">
       <span class="k">Altitude profile</span>
@@ -108,6 +161,7 @@
       <text id="profileHint" x="532" y="110" fill="#8e8e8e" font-size="16" text-anchor="middle">Waiting for GPS</text>
     </svg>
   </section>
+
   <div class="gate" id="gate">
     <div class="gate-card">
       <h2 id="gateTitle">Enable location</h2>
@@ -115,6 +169,6 @@
       <button class="cta" id="askLoc" type="button">Enable location</button>
     </div>
   </div>
-  <script src="app.js?v=30"></script>
+  <script src="app.js?v=40"></script>
 </body>
 </html>

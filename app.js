@@ -1,29 +1,32 @@
 const $ = (id) => document.getElementById(id);
-const CLIMB_WINDOW_MS = 4000;
+
 const EL_DB = 3;
+const MIN_MOVE = 2;
+const MAX_VS = 6;
+const MAX_GRADE = 25;
 
 const state = {
   unit: localStorage.getItem("grade-unit") || "m",
   watchId: null,
-  pollId: null,
-  lastPos: null,
+  lastStamp: 0,
   lastAlt: null,
-  lastClimbSample: 0,
+  lastAltTs: 0,
+  lastVsAlt: null,
   lastFixT: 0,
   lastLat: null,
   lastLon: null,
-  climbLog: [],
+  lastElAlt: null,
+  lastProfileT: 0,
+  lastProfileD: 0,
   profile: [],
   smoothAlt: null,
-  vs: 0,
+  vs: null,
   grade: 0,
-  vsReady: false,
+  drawGrade: 0,
   speed: 0,
   odo: 0,
   gain: 0,
   loss: 0,
-  lastAltForEl: null,
-  drawGrade: 0,
   starting: false
 };
 
@@ -40,14 +43,15 @@ function fmtAlt(m) {
   return v == null ? "\u2014" : (Math.round(v * 10) / 10).toFixed(1);
 }
 function fmtVs(mps) {
-  if (!state.vsReady || mps == null || Number.isNaN(mps)) return "0 " + state.unit + "/min";
+  if (mps == null || !Number.isFinite(mps)) return "0 " + state.unit + "/min";
   const v = Math.round(mps * 60 * (state.unit === "ft" ? 3.28084 : 1));
+  if (Math.abs(v) < 1) return "0 " + state.unit + "/min";
   return (v > 0 ? "+" : "") + v + " " + state.unit + "/min";
 }
 function fmtGrade(p) {
   if (p == null || !Number.isFinite(p)) return "0%";
   const v = Math.round(p * 10) / 10;
-  if (Math.abs(v) < 0.3) return "0%";
+  if (Math.abs(v) < 0.4) return "0%";
   return (v > 0 ? "+" : "") + v.toFixed(1) + "%";
 }
 function fmtSpeed(mps) {
@@ -63,23 +67,12 @@ function fmtDist(m) {
 function fmtEl(m) {
   return Math.round(toDisp(m) || 0) + " " + state.unit;
 }
+function clamp(n, lo, hi) {
+  return Math.max(lo, Math.min(hi, n));
+}
 function setStatus(kind, text) {
   $("dot").className = "dot " + kind;
   $("statusText").textContent = text;
-}
-function distM(a, b) {
-  const R = 6371000;
-  const dLat = (b.lat - a.lat) * Math.PI / 180;
-  const dLon = (b.lon - a.lon) * Math.PI / 180;
-  const la1 = a.lat * Math.PI / 180;
-  const la2 = b.lat * Math.PI / 180;
-  const h = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(la1) * Math.cos(la2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
-}
-function zeroClimb() {
-  state.vs = 0;
-  state.grade = 0;
 }
 
 function setUnit(u) {
@@ -93,116 +86,22 @@ function setUnit(u) {
 }
 
 function resetSession() {
-  state.climbLog = [];
   state.profile = [];
-  state.vs = 0;
+  state.vs = null;
   state.grade = 0;
-  state.vsReady = false;
+  state.drawGrade = 0;
   state.odo = 0;
   state.gain = 0;
   state.loss = 0;
-  state.lastAltForEl = state.smoothAlt;
-  state.lastClimbSample = 0;
+  state.lastElAlt = state.smoothAlt;
+  state.lastVsAlt = state.smoothAlt;
+  state.lastAltTs = 0;
   state.lastFixT = 0;
-  state.drawGrade = 0;
+  state.lastProfileT = 0;
+  state.lastProfileD = 0;
   paint();
   drawIncline();
   drawProfile();
-}
-
-function sampleClimb(smoothAlt, speed) {
-  const now = Date.now();
-  if (smoothAlt == null || !Number.isFinite(smoothAlt)) return;
-  state.vsReady = true;
-  if (now - state.lastClimbSample < 800) return;
-  state.lastClimbSample = now;
-
-  const spd = speed == null || !Number.isFinite(speed) ? 0 : speed;
-  const log = state.climbLog;
-  log.push({ t: now, alt: smoothAlt, speed: spd });
-  while (log.length && now - log[0].t > 10000) log.shift();
-
-  const avgSpeed = log.reduce((s, p) => s + p.speed, 0) / log.length;
-  if (avgSpeed < 1.2) {
-    zeroClimb();
-    return;
-  }
-
-  let older = null;
-  for (let i = 0; i < log.length; i++) {
-    if (now - log[i].t >= CLIMB_WINDOW_MS) older = log[i];
-  }
-  if (!older) return;
-
-  const dt = (now - older.t) / 1000;
-  if (dt < 2) return;
-
-  const rise = smoothAlt - older.alt;
-  const run = avgSpeed * dt;
-  if (!Number.isFinite(rise) || run < 8) {
-    zeroClimb();
-    return;
-  }
-
-  const rawGrade = (rise / run) * 100;
-  if (!Number.isFinite(rawGrade)) return;
-
-  state.grade = state.grade * 0.65 + rawGrade * 0.35;
-  if (Math.abs(state.grade) < 0.3) {
-    zeroClimb();
-    return;
-  }
-  state.vs = (state.grade / 100) * avgSpeed;
-}
-
-function accrueGain(alt) {
-  if (alt == null || !Number.isFinite(alt)) return;
-  if (state.lastAltForEl == null) {
-    state.lastAltForEl = alt;
-    return;
-  }
-  const d = alt - state.lastAltForEl;
-  if (d >= EL_DB) {
-    state.gain += d;
-    state.lastAltForEl = alt;
-  } else if (d <= -EL_DB) {
-    state.loss += -d;
-    state.lastAltForEl = alt;
-  }
-}
-
-function advanceOdo(now, speed, lat, lon) {
-  let spd = 0;
-  if (Number.isFinite(speed) && speed > 0) spd = speed;
-  const dt = state.lastFixT > 0 ? (now - state.lastFixT) / 1000 : 0;
-  let step = 0;
-  if (lat != null && lon != null && state.lastLat != null) {
-    const geo = distM({ lat: state.lastLat, lon: state.lastLon }, { lat: lat, lon: lon });
-    if (Number.isFinite(geo) && geo >= 1.5 && geo < 2000) step = geo;
-  }
-  if (spd >= 0.5 && dt >= 0.3 && dt <= 4) state.odo += spd * dt;
-  else if (step >= 1.5) state.odo += step;
-  if (lat != null && lon != null && Number.isFinite(lat)) {
-    if (state.lastLat == null || step >= 1.5) {
-      state.lastLat = lat;
-      state.lastLon = lon;
-    }
-  }
-  state.lastFixT = now;
-  state.speed = spd;
-}
-
-function pushProfile(now, alt) {
-  if (alt == null || !Number.isFinite(alt)) return;
-  const p = state.profile;
-  const row = { t: now, alt: alt, dist: state.odo };
-  if (!p.length) {
-    p.push(row);
-    return;
-  }
-  if (now - p[p.length - 1].t < 500) p[p.length - 1] = row;
-  else p.push(row);
-  if (p.length > 2500) state.profile = p.slice(-1800);
 }
 
 function paint() {
@@ -214,21 +113,100 @@ function paint() {
   $("loss").textContent = fmtEl(state.loss);
 }
 
+function accrueGain(alt) {
+  if (alt == null || !Number.isFinite(alt)) return;
+  if (state.lastElAlt == null) {
+    state.lastElAlt = alt;
+    return;
+  }
+  const d = alt - state.lastElAlt;
+  if (d >= EL_DB) {
+    state.gain += d;
+    state.lastElAlt = alt;
+  } else if (d <= -EL_DB) {
+    state.loss += -d;
+    state.lastElAlt = alt;
+  }
+}
+
+function advanceOdo(now, speed) {
+  const spd = Number.isFinite(speed) && speed > 0 ? speed : 0;
+  const dt = state.lastFixT > 0 ? (now - state.lastFixT) / 1000 : 0;
+  if (spd >= 0.5 && dt >= 0.4 && dt <= 4) state.odo += spd * dt;
+  state.lastFixT = now;
+  state.speed = spd;
+}
+
+function pushProfile(now, alt) {
+  if (alt == null || !Number.isFinite(alt)) return;
+  const moved = state.odo - state.lastProfileD;
+  if (state.profile.length && now - state.lastProfileT < 800 && moved < 8) {
+    state.profile[state.profile.length - 1] = { t: now, alt: alt, dist: state.odo };
+    return;
+  }
+  if (state.profile.length && moved < 6 && now - state.lastProfileT < 2000) return;
+  state.profile.push({ t: now, alt: alt, dist: state.odo });
+  state.lastProfileT = now;
+  state.lastProfileD = state.odo;
+  if (state.profile.length > 2500) state.profile = state.profile.slice(-1800);
+}
+
+function updateClimb(smoothAlt, speed, t) {
+  if (smoothAlt == null || !Number.isFinite(smoothAlt)) return;
+
+  if (!state.lastAltTs) {
+    state.lastAltTs = t;
+    state.lastVsAlt = smoothAlt;
+    return;
+  }
+
+  const dt = (t - state.lastAltTs) / 1000;
+  if (dt < 2 || dt >= 15) {
+    if (dt >= 15) {
+      state.lastAltTs = t;
+      state.lastVsAlt = smoothAlt;
+    }
+    return;
+  }
+
+  let rawVs = (smoothAlt - state.lastVsAlt) / dt;
+  if (!Number.isFinite(rawVs)) return;
+  rawVs = clamp(rawVs, -MAX_VS, MAX_VS);
+
+  state.vs = state.vs == null ? rawVs : state.vs * 0.65 + rawVs * 0.35;
+  state.lastAltTs = t;
+  state.lastVsAlt = smoothAlt;
+
+  const spd = Number.isFinite(speed) ? speed : 0;
+  if (spd >= MIN_MOVE && state.vs != null) {
+    const rawGrade = clamp((state.vs / spd) * 100, -MAX_GRADE, MAX_GRADE);
+    state.grade = state.grade * 0.7 + rawGrade * 0.3;
+  } else {
+    state.grade *= 0.82;
+    if (Math.abs(state.grade) < 0.4) state.grade = 0;
+    if (state.vs != null) state.vs *= 0.82;
+  }
+}
+
 function applyFix(pos) {
   const c = pos.coords;
-  const now = Date.now();
+  const t = pos.timestamp || Date.now();
+  if (t <= state.lastStamp) return;
+  state.lastStamp = t;
+
   const alt = c.altitude;
   const speed = c.speed;
-  advanceOdo(now, speed, c.latitude, c.longitude);
+  advanceOdo(t, speed);
 
   if (alt != null && Number.isFinite(alt)) {
     if (state.smoothAlt == null) state.smoothAlt = alt;
     else state.smoothAlt = state.smoothAlt * 0.72 + alt * 0.28;
     state.lastAlt = alt;
-    sampleClimb(state.smoothAlt, speed);
+    updateClimb(state.smoothAlt, speed, t);
     accrueGain(state.smoothAlt);
-    pushProfile(now, state.smoothAlt);
+    pushProfile(t, state.smoothAlt);
   }
+
   paint();
 
   const acc = c.accuracy;
@@ -239,12 +217,12 @@ function applyFix(pos) {
 }
 
 function drawIncline() {
-  state.drawGrade += (state.grade - state.drawGrade) * 0.18;
+  state.drawGrade += (state.grade - state.drawGrade) * 0.16;
   const wedge = $("inclineWedge");
   const bar = $("inclineBar");
   if (!wedge || !bar) return;
   const w = 800, cy = 55, cx = w / 2;
-  const clamped = Math.max(-18, Math.min(18, state.drawGrade));
+  const clamped = clamp(state.drawGrade, -18, 18);
   const vis = Math.atan(clamped / 100) * 180 / Math.PI * 2.2;
   const rad = (-vis * Math.PI) / 180;
   const barW = w * 0.78;
@@ -266,15 +244,18 @@ function drawProfile() {
   const dotEl = $("profileDot");
   const hint = $("profileHint");
   const pts = state.profile;
-  if (!lineEl || !pts.length) {
-    if (lineEl) lineEl.setAttribute("d", "");
+  if (!lineEl) return;
+  if (!pts.length) {
+    lineEl.setAttribute("d", "");
     if (fillEl) fillEl.setAttribute("d", "");
     if (dotEl) dotEl.setAttribute("cx", "-20");
     if (hint) hint.textContent = "Drive to build profile";
     $("profileRange").textContent = fmtDist(0);
     $("profileX0").textContent = fmtDist(0);
-    $("profileX1").textContent = fmtDist(0);
+    $("profileX1").textContent = "";
     $("profileX2").textContent = fmtDist(0);
+    $("profileMax").textContent = "";
+    $("profileMin").textContent = "";
     return;
   }
   hint.textContent = "";
@@ -289,8 +270,15 @@ function drawProfile() {
     if (a < min) min = a;
     if (a > max) max = a;
   }
-  const padY = Math.max((max - min) * 0.12, 8);
-  const y0 = min - padY, y1 = max + padY, spanY = y1 - y0 || 1;
+  const padY = Math.max((max - min) * 0.12, 6);
+  let y0 = min - padY;
+  let y1 = max + padY;
+  if (y1 - y0 < 40) {
+    const mid = (y0 + y1) / 2;
+    y0 = mid - 20;
+    y1 = mid + 20;
+  }
+  const spanY = y1 - y0 || 1;
 
   function xy(p) {
     const x = padL + ((p.dist - d0) / spanX) * iw;
@@ -329,6 +317,7 @@ function showGate(title, text) {
   $("gateText").textContent = text;
   $("gate").classList.add("show");
 }
+
 function onError(err) {
   const code = err && err.code;
   if (code === 1) {
@@ -340,16 +329,7 @@ function onError(err) {
   else if (code === 3) setStatus("wait", "GPS timeout");
   else setStatus("wait", err && err.message ? err.message : "GPS error");
 }
-function stopGps() {
-  if (state.watchId != null) {
-    navigator.geolocation.clearWatch(state.watchId);
-    state.watchId = null;
-  }
-  if (state.pollId) {
-    clearInterval(state.pollId);
-    state.pollId = null;
-  }
-}
+
 function startWatch() {
   if (state.starting) return;
   state.starting = true;
@@ -364,25 +344,20 @@ function startWatch() {
     showGate("No geolocation", "This browser does not expose GPS.");
     return;
   }
-  stopGps();
+  if (state.watchId != null) {
+    navigator.geolocation.clearWatch(state.watchId);
+    state.watchId = null;
+  }
   $("gate").classList.remove("show");
   setStatus("wait", "Acquiring GPS");
   const opts = { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 };
   navigator.geolocation.getCurrentPosition(function (pos) {
-    state.lastPos = pos;
     applyFix(pos);
     drawProfile();
+    state.watchId = navigator.geolocation.watchPosition(function (next) {
+      applyFix(next);
+    }, onError, opts);
   }, onError, opts);
-  state.watchId = navigator.geolocation.watchPosition(function (pos) {
-    state.lastPos = pos;
-    applyFix(pos);
-  }, onError, opts);
-  state.pollId = setInterval(function () {
-    navigator.geolocation.getCurrentPosition(function (pos) {
-      state.lastPos = pos;
-      applyFix(pos);
-    }, function () {}, { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 });
-  }, 1000);
 }
 
 $("btnM").addEventListener("click", function () { setUnit("m"); });
@@ -404,6 +379,7 @@ else {
     ? "On iPhone, Safari only asks for GPS after a tap. Tap the button, then Allow."
     : "Tap to allow GPS.");
 }
+
 document.addEventListener("visibilitychange", function () {
   if (document.visibilityState === "visible" && isTesla) startWatch();
 });

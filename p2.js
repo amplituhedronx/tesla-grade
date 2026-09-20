@@ -1,1 +1,1 @@
-/* retired — see app.js */
+/* retired — app.js */
