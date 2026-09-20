@@ -4,12 +4,13 @@ function drawProfile() {
   const dotEl = $("profileDot");
   const hint = $("profileHint");
   if (!lineEl || !fillEl || !dotEl) return;
-  const w = 1000, padL = 70, padR = 20, padT = 16, padB = 32;
+  const w = 1000, padL = 100, padR = 24, padT = 18, padB = 34;
   const iw = w - padL - padR, ih = 220 - padT - padB;
   const pts = state.profile.slice();
   if (pts.length === 1) {
     pts.push({ t: pts[0].t + 1000, alt: pts[0].alt, dist: pts[0].dist + 1, ghost: true });
   }
+
   const aheadEl = $("profileAhead");
   if (!pts.length && !(state.ahead && state.ahead.length)) {
     lineEl.setAttribute("d", "");
@@ -24,9 +25,11 @@ function drawProfile() {
     return;
   }
   if (hint) hint.textContent = "";
+
   let d0 = pts.length ? pts[0].dist : 0;
   let d1 = pts.length ? pts[pts.length - 1].dist : 0;
   let dspan = Math.max(d1 - d0, 0);
+
   if (pts.length && dspan < 15) {
     let acc = 0, prev = null;
     for (let i = 0; i < pts.length; i++) {
@@ -38,9 +41,12 @@ function drawProfile() {
       p.dist = acc;
       if (p.lat != null && p.lon != null) prev = p;
     }
-    d0 = 0; d1 = acc; dspan = acc;
+    d0 = 0;
+    d1 = acc;
+    dspan = acc;
     if (acc > state.odo) state.odo = acc;
   }
+
   const hereDist = pts.length ? pts[pts.length - 1].dist : 0;
   const aheadPts = [];
   if (state.ahead && state.ahead.length) {
@@ -54,23 +60,48 @@ function drawProfile() {
     aheadPts.push({ dist: hereDist, alt: originAlt, ahead: true });
     const preview = [80, 180, 320];
     for (let i = 0; i < preview.length; i++) {
-      aheadPts.push({ dist: hereDist + preview[i], alt: originAlt + preview[i] * (state.grade / 100), ahead: true });
+      aheadPts.push({
+        dist: hereDist + preview[i],
+        alt: originAlt + preview[i] * (state.grade / 100),
+        ahead: true
+      });
     }
   }
-  const all = pts.concat(aheadPts);
-  const alts = all.map(function (p) { return toDisp(p.alt); }).filter(function (v) { return v != null; });
-  let min = Math.min.apply(null, alts), max = Math.max.apply(null, alts);
-  const rawSpan = max - min;
-  if (rawSpan < 12) { const mid = (max + min) / 2; min = mid - 6; max = mid + 6; }
+
+  const histAlts = pts.map(function (p) { return toDisp(p.alt); }).filter(function (v) { return v != null; });
+  const aheadAlts = aheadPts.map(function (p) { return toDisp(p.alt); }).filter(function (v) { return v != null; });
+  const alts = histAlts.concat(aheadAlts);
+  let dataMin = Math.min.apply(null, alts);
+  let dataMax = Math.max.apply(null, alts);
+  if (!Number.isFinite(dataMin) || !Number.isFinite(dataMax)) {
+    dataMin = 0; dataMax = 1;
+  }
+  const rawSpan = Math.max(dataMax - dataMin, 0);
+  const padY = Math.max(rawSpan * 0.12, 10);
+  const min = dataMin - padY;
+  const max = dataMax + padY;
   const span = max - min || 1;
-  const lastAhead = aheadPts.length ? aheadPts[aheadPts.length - 1].dist : d1;
-  const viewSpan = Math.max(lastAhead - d0, dspan, 1);
-  const collapsed = dspan < 15 && aheadPts.length < 2;
+
+  const histSpan = Math.max(dspan, state.odo || 0, 1);
+  const aheadM = aheadPts.length ? Math.max(0, aheadPts[aheadPts.length - 1].dist - hereDist) : 0;
+  const histW = aheadM > 0 ? iw * 0.84 : iw;
+  const aheadW = iw - histW;
+  const collapsed = histSpan < 15 && aheadPts.length < 2;
+
   function xy(p, i, n) {
-    const x = collapsed ? padL + (i / Math.max(n - 1, 1)) * iw : padL + ((p.dist - d0) / viewSpan) * iw;
+    let x;
+    if (collapsed) {
+      x = padL + (i / Math.max(n - 1, 1)) * iw;
+    } else if (p.ahead) {
+      const ad = Math.max(0, p.dist - hereDist);
+      x = padL + histW + (aheadM > 0 ? (ad / aheadM) * aheadW : 0);
+    } else {
+      x = padL + ((p.dist - d0) / histSpan) * histW;
+    }
     const y = padT + (1 - (toDisp(p.alt) - min) / span) * ih;
     return [x, y];
   }
+
   let line = "";
   for (let i = 0; i < pts.length; i++) {
     if (pts[i].ghost && pts.length > 2) continue;
@@ -100,12 +131,14 @@ function drawProfile() {
   if (aheadEl) aheadEl.setAttribute("d", aheadPath);
   dotEl.setAttribute("cx", last[0].toFixed(1));
   dotEl.setAttribute("cy", last[1].toFixed(1));
-  $("profileMax").textContent = Math.round(max) + " " + state.unit;
-  $("profileMin").textContent = Math.round(min) + " " + state.unit;
+
+  $("profileMax").textContent = Math.round(dataMax) + " " + state.unit;
+  $("profileMin").textContent = Math.round(dataMin) + " " + state.unit;
   $("profileX0").textContent = fmtDist(0);
-  $("profileX1").textContent = fmtDist(viewSpan / 2);
-  $("profileX2").textContent = fmtDist(viewSpan);
-  $("profileRange").textContent = Math.round(Math.max(rawSpan, 0)) + " " + state.unit + " \u00b7 " + fmtDist(Math.max(dspan, state.odo));
+  $("profileX1").textContent = fmtDist(histSpan / 2);
+  $("profileX2").textContent = fmtDist(histSpan);
+  $("profileRange").textContent = Math.round(dataMax) + "\u2013" + Math.round(dataMin) + " " + state.unit + " \u00b7 " + fmtDist(histSpan);
+
   const labels = $("profileLabels");
   if (labels) {
     while (labels.firstChild) labels.removeChild(labels.firstChild);
@@ -132,7 +165,7 @@ function drawProfile() {
   }
 }
 
-function createSim() { return { elapsed: 0, alt: 542, lat: 46.561, lon: 8.336 }; }
+function createSim() { return { elapsed: 0, alt: 1242, lat: 46.561, lon: 8.336 }; }
 function stepSim(sim, dt) {
   sim.elapsed += dt;
   let t = sim.elapsed % CYCLE, seg = SEGMENTS[0];
@@ -147,26 +180,34 @@ function stepSim(sim, dt) {
 }
 function startSim() {
   state.sim = createSim();
-  state.terrain = 536;
+  state.terrain = state.sim.alt;
   setStatus("live", "Simulating");
   const seed0 = Date.now() - 35000;
   for (let i = 0; i < 35; i++) {
     const fix = stepSim(state.sim, 1);
+    state.terrain = fix.alt;
     state.terrainGrade = fix.grade;
-    state.ahead = [120, 250, 450, 700].map(function (d) {
+    state.grade = fix.grade;
+    state.ahead = [80, 160, 280, 450].map(function (d) {
       return { dist: d, alt: fix.alt + d * (fix.grade / 100) };
     });
     applyFix(fix.alt, fix.speed, fix.lat, fix.lon, seed0 + i * 1000);
+    state.grade = state.grade * 0.25 + fix.grade * 0.75;
   }
   drawIncline(); drawProfile();
   state.simId = setInterval(function () {
     if (!state.sim) return;
     const fix = stepSim(state.sim, 1);
+    state.terrain = fix.alt;
     state.terrainGrade = fix.grade;
-    state.ahead = [120, 250, 450, 700].map(function (d) {
+    state.ahead = [80, 160, 280, 450].map(function (d) {
       return { dist: d, alt: fix.alt + d * (fix.grade / 100) };
     });
     applyFix(fix.alt, fix.speed, fix.lat, fix.lon, Date.now());
+    state.grade = state.grade * 0.25 + fix.grade * 0.75;
+    state.vs = (state.grade / 100) * fix.speed;
+    state.vsReady = true;
+    paintReadouts();
     drawIncline(); drawProfile();
   }, 1000);
 }
@@ -174,6 +215,7 @@ function stopSim() {
   if (state.simId) { clearInterval(state.simId); state.simId = null; }
   state.sim = null;
 }
+
 function showGate(title, text) { $("gateTitle").textContent = title; $("gateText").textContent = text; $("gate").classList.add("show"); }
 function onError(err) {
   const code = err && err.code;
@@ -206,13 +248,16 @@ function startWatch() {
     navigator.geolocation.getCurrentPosition(function (pos) { state.lastPos = pos; render(pos); }, function () {}, { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 });
   }, 1000);
 }
+
 function loop() { drawIncline(); drawProfile(); requestAnimationFrame(loop); }
+
 $("btnM").addEventListener("click", function () { setUnit("m"); });
 $("btnFt").addEventListener("click", function () { setUnit("ft"); });
 $("btnSim").addEventListener("click", function () { setMode("sim"); });
 $("btnGps").addEventListener("click", function () { setMode("gps"); });
 $("askLoc").addEventListener("click", function (e) { e.preventDefault(); startWatch(); });
 $("askLoc").addEventListener("touchend", function (e) { e.preventDefault(); startWatch(); }, { passive: false });
+
 setUnit(state.unit);
 drawIncline();
 drawProfile();
@@ -222,6 +267,7 @@ state.tickId = setInterval(function () {
   drawIncline();
   drawProfile();
 }, 1000);
+
 if (isTesla) startWatch();
 else {
   setStatus("wait", "Tap to enable GPS");
@@ -229,6 +275,7 @@ else {
     ? "On iPhone, Safari only asks for GPS after a tap. Tap the button, then Allow \u2014 or use Sim."
     : "Tap to allow GPS, or switch to Sim to preview the dashboards.");
 }
+
 document.addEventListener("visibilitychange", function () {
   if (document.visibilityState === "visible" && isTesla && state.mode === "gps") startWatch();
 });
